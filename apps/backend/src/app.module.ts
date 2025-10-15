@@ -45,11 +45,11 @@ export class AppModule implements NestModule {
     consumer
       .apply(TenantContextMiddleware)
       .exclude(
-        { path: 'api/v1/auth/register', method: RequestMethod.POST },
-        { path: 'api/v1/auth/verify-email', method: RequestMethod.GET },
-        { path: 'api/v1/organizations/register', method: RequestMethod.POST },
-        { path: 'api/v1/organizations/verify-email', method: RequestMethod.GET },
-        { path: 'api/v1/health', method: RequestMethod.GET }
+        { path: 'auth/register', method: RequestMethod.POST },
+        { path: 'auth/verify-email', method: RequestMethod.GET },
+        { path: 'organizations/register', method: RequestMethod.POST },
+        { path: 'organizations/verify-email', method: RequestMethod.GET },
+        { path: 'health', method: RequestMethod.GET }
       )
       .forRoutes('*');
   }
