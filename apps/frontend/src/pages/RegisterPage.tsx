@@ -57,7 +57,7 @@ export default function RegisterPage() {
             Please check your inbox and click the verification link to complete your setup.
           </p>
           <p className="text-sm text-gray-500">
-            The verification link will expire in 24 hours.
+            The verification link will expire in 48 hours.
           </p>
         </div>
       </div>

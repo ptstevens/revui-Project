@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { organizationApi } from '../services/api';
 
@@ -11,9 +11,14 @@ export default function VerifyEmailPage() {
     organizationName: string;
     email: string;
   } | null>(null);
+  const hasVerified = useRef(false);
 
   useEffect(() => {
     const verifyEmail = async () => {
+      // Prevent double execution in React StrictMode (development)
+      if (hasVerified.current) return;
+      hasVerified.current = true;
+
       const token = searchParams.get('token');
 
       if (!token) {
