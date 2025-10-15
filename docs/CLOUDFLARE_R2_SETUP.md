@@ -202,8 +202,8 @@ Verify R2 configuration in your backend:
 cd apps/backend
 npm run dev
 
-# Test configuration endpoint (if implemented)
-curl http://localhost:3000/api/recordings/health
+# Test configuration endpoint
+curl http://localhost:3000/api/v1/recordings/health
 ```
 
 Expected response:
@@ -222,7 +222,7 @@ Test the complete upload workflow:
 
 ```bash
 # Step 1: Initiate upload
-curl -X POST http://localhost:3000/api/recordings/initiate \
+curl -X POST http://localhost:3000/api/v1/recordings/initiate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
@@ -246,7 +246,7 @@ curl -X PUT "PRESIGNED_UPLOAD_URL" \
   --data-binary @test-recording.webm
 
 # Step 3: Complete upload
-curl -X POST http://localhost:3000/api/recordings/{recordingId}/complete \
+curl -X POST http://localhost:3000/api/v1/recordings/{recordingId}/complete \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
@@ -256,7 +256,7 @@ curl -X POST http://localhost:3000/api/recordings/{recordingId}/complete \
   }'
 
 # Step 4: Get recording with download URL
-curl http://localhost:3000/api/recordings/{recordingId} \
+curl http://localhost:3000/api/v1/recordings/{recordingId} \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 

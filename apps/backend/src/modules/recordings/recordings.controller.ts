@@ -27,7 +27,7 @@ import { UserRole } from '@prisma/client';
  * - Viewing recordings (AC4)
  * - Managing recordings
  */
-@Controller('api/recordings')
+@Controller('recordings')
 @UseGuards(RolesGuard)
 export class RecordingsController {
   constructor(private readonly recordingsService: RecordingsService) {}
