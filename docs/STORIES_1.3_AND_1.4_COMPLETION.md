@@ -153,7 +153,7 @@ Response:
 ## Story 1.4: Recording Storage Infrastructure
 
 ### Overview
-Implemented secure recording storage using AWS S3 with pre-signed URLs for direct client-to-cloud uploads.
+Implemented secure recording storage using Cloudflare R2 (S3-compatible) with pre-signed URLs for direct client-to-cloud uploads. R2 provides zero egress costs and 35% cheaper storage compared to AWS S3.
 
 ### Acceptance Criteria - Status
 
@@ -182,7 +182,7 @@ Implemented secure recording storage using AWS S3 with pre-signed URLs for direc
 #### ✅ AC3: Multi-tenant Storage Isolation
 **Status:** Complete
 
-**S3 Path Structure:**
+**R2 Path Structure:**
 ```
 {tenantId}/{taskId}/{userId}/{timestamp}_{sanitized_filename}
 
@@ -193,9 +193,10 @@ abc123-tenant/xyz789-task/user456/1697123456789_screen_recording.webm
 **Benefits:**
 - Natural tenant data isolation
 - Easy to implement tenant-specific lifecycle policies
-- Supports per-tenant S3 analytics
+- Supports per-tenant R2 analytics
 - Embedded audit trail in path structure
 - Simple to implement data sovereignty rules
+- Zero egress costs for downloads (vs $0.09/GB on S3)
 
 #### ✅ AC4: Secure Download Access
 **Status:** Complete
@@ -240,7 +241,7 @@ CREATE INDEX "recordings_upload_status_idx" ON "recordings"("upload_status");
 ### Files Created/Modified
 
 **Backend:**
-- `/apps/backend/src/common/services/s3.service.ts` - AWS S3 operations
+- `/apps/backend/src/common/services/s3.service.ts` - Cloudflare R2 operations (S3-compatible)
 - `/apps/backend/src/modules/recordings/recordings.service.ts` - Recording business logic
 - `/apps/backend/src/modules/recordings/recordings.controller.ts` - REST API endpoints
 - `/apps/backend/src/modules/recordings/recordings.module.ts` - Module configuration
@@ -249,7 +250,7 @@ CREATE INDEX "recordings_upload_status_idx" ON "recordings"("upload_status");
 - `/apps/backend/src/app.module.ts` - Added RecordingsModule import
 
 **Documentation:**
-- `/docs/AWS_S3_SETUP.md` - Comprehensive S3 bucket setup guide
+- `/docs/CLOUDFLARE_R2_SETUP.md` - Comprehensive Cloudflare R2 setup guide
 
 **Database:**
 - `/apps/backend/prisma/migrations/004_stories_1_3_and_1_4/migration.sql` - Schema migration

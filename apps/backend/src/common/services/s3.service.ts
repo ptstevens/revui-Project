@@ -4,13 +4,16 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } fro
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 /**
- * Story 1.4: AWS S3 Service for Recording Storage
+ * Story 1.4: Cloudflare R2 Service for Recording Storage
  *
  * Provides secure storage infrastructure with:
  * - Pre-signed URL generation for direct uploads (AC1, AC2)
  * - Multi-tenant path isolation (AC3)
  * - Secure download access (AC4)
+ * - Zero egress costs for downloads
  * - File lifecycle management
+ *
+ * Uses Cloudflare R2 (S3-compatible) for cost-effective storage
  */
 @Injectable()
 export class S3Service {
@@ -18,16 +21,19 @@ export class S3Service {
   private bucketName: string;
 
   constructor(private readonly configService: ConfigService) {
-    // Initialize S3 client
+    // Initialize R2 client (S3-compatible)
+    const accountId = this.configService.get('R2_ACCOUNT_ID') || '';
+
     this.s3Client = new S3Client({
-      region: this.configService.get('AWS_REGION') || 'us-east-1',
+      region: 'auto', // R2 uses 'auto' for region
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID') || '',
-        secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY') || '',
+        accessKeyId: this.configService.get('R2_ACCESS_KEY_ID') || '',
+        secretAccessKey: this.configService.get('R2_SECRET_ACCESS_KEY') || '',
       },
     });
 
-    this.bucketName = this.configService.get('AWS_S3_BUCKET_NAME') || 'revui-recordings';
+    this.bucketName = this.configService.get('R2_BUCKET_NAME') || 'revui-recordings';
   }
 
   /**
@@ -115,10 +121,10 @@ export class S3Service {
   }
 
   /**
-   * Delete a recording from S3
+   * Delete a recording from R2
    * Used when recordings are deleted or expired
    *
-   * @param s3Key - S3 object key
+   * @param s3Key - R2 object key (kept as s3Key for S3 compatibility)
    */
   async deleteRecording(s3Key: string): Promise<void> {
     try {
@@ -135,20 +141,20 @@ export class S3Service {
   }
 
   /**
-   * Validate S3 configuration
+   * Validate R2 configuration
    * Used for health checks and startup validation
    */
   async validateConfiguration(): Promise<{ configured: boolean; message: string }> {
-    const accessKeyId = this.configService.get('AWS_ACCESS_KEY_ID');
-    const secretAccessKey = this.configService.get('AWS_SECRET_ACCESS_KEY');
-    const region = this.configService.get('AWS_REGION');
-    const bucketName = this.configService.get('AWS_S3_BUCKET_NAME');
+    const accountId = this.configService.get('R2_ACCOUNT_ID');
+    const accessKeyId = this.configService.get('R2_ACCESS_KEY_ID');
+    const secretAccessKey = this.configService.get('R2_SECRET_ACCESS_KEY');
+    const bucketName = this.configService.get('R2_BUCKET_NAME');
 
     const missingVars: string[] = [];
-    if (!accessKeyId) missingVars.push('AWS_ACCESS_KEY_ID');
-    if (!secretAccessKey) missingVars.push('AWS_SECRET_ACCESS_KEY');
-    if (!region) missingVars.push('AWS_REGION');
-    if (!bucketName) missingVars.push('AWS_S3_BUCKET_NAME');
+    if (!accountId) missingVars.push('R2_ACCOUNT_ID');
+    if (!accessKeyId) missingVars.push('R2_ACCESS_KEY_ID');
+    if (!secretAccessKey) missingVars.push('R2_SECRET_ACCESS_KEY');
+    if (!bucketName) missingVars.push('R2_BUCKET_NAME');
 
     if (missingVars.length > 0) {
       return {
@@ -159,12 +165,12 @@ export class S3Service {
 
     return {
       configured: true,
-      message: 'S3 service configured successfully',
+      message: 'R2 service configured successfully',
     };
   }
 
   /**
-   * Helper: Sanitize filename for S3 storage
+   * Helper: Sanitize filename for R2/S3 storage
    * Removes special characters and spaces
    */
   private sanitizeFilename(filename: string): string {
@@ -175,7 +181,7 @@ export class S3Service {
   }
 
   /**
-   * Helper: Extract tenant ID from S3 key
+   * Helper: Extract tenant ID from R2 object key
    * Useful for validation and auditing
    */
   extractTenantIdFromKey(s3Key: string): string | null {
@@ -184,7 +190,7 @@ export class S3Service {
   }
 
   /**
-   * Helper: Extract task ID from S3 key
+   * Helper: Extract task ID from R2 object key
    */
   extractTaskIdFromKey(s3Key: string): string | null {
     const parts = s3Key.split('/');
@@ -192,7 +198,7 @@ export class S3Service {
   }
 
   /**
-   * Helper: Extract user ID from S3 key
+   * Helper: Extract user ID from R2 object key
    */
   extractUserIdFromKey(s3Key: string): string | null {
     const parts = s3Key.split('/');

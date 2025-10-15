@@ -21,7 +21,7 @@ revui-app/
 - **Frontend**: React 18.3+ with Vite and Tailwind CSS
 - **Database**: PostgreSQL 14+ with Prisma 5.x ORM
 - **Caching**: Redis 7+
-- **Storage**: AWS S3 + CloudFront CDN
+- **Storage**: Cloudflare R2 (S3-compatible object storage)
 
 ## Getting Started
 
