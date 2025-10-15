@@ -97,10 +97,14 @@ enum UserRole {
   MANAGER
   REVIEWER
   USER
+
+  @@map("user_role")
 }
 
 enum LinkPurpose {
   RECORDING
   INVITATION
   EMAIL_VERIFICATION
+
+  @@map("link_purpose")
 }
