@@ -105,17 +105,20 @@ CORS is essential for direct browser uploads using pre-signed URLs.
   {
     "AllowedOrigins": [
       "http://localhost:5173",
-      "https://your-production-domain.com"
+      "https://revui.app",
+      "https://www.revui.app"
     ],
     "AllowedMethods": [
       "GET",
       "PUT",
-      "POST"
+      "HEAD"
     ],
     "AllowedHeaders": [
       "*"
     ],
     "ExposeHeaders": [
+      "Content-Length",
+      "Content-Type",
       "ETag"
     ],
     "MaxAgeSeconds": 3600
@@ -123,7 +126,10 @@ CORS is essential for direct browser uploads using pre-signed URLs.
 ]
 ```
 
-**Important:** Update `AllowedOrigins` with your actual frontend URLs.
+**Important:**
+- `PUT` method is **required** for pre-signed URL uploads
+- `POST` is not needed (we use PUT for S3-compatible uploads)
+- Keep localhost for development testing
 
 ### Via API (Advanced):
 
@@ -133,10 +139,10 @@ curl -X PUT \
   -H "Authorization: Bearer {api_token}" \
   -H "Content-Type: application/json" \
   -d '[{
-    "AllowedOrigins": ["http://localhost:5173"],
-    "AllowedMethods": ["GET", "PUT", "POST"],
+    "AllowedOrigins": ["http://localhost:5173", "https://revui.app", "https://www.revui.app"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
     "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag"],
+    "ExposeHeaders": ["Content-Length", "Content-Type", "ETag"],
     "MaxAgeSeconds": 3600
   }]'
 ```
@@ -421,9 +427,10 @@ If you want some recordings publicly accessible:
    - Verify Account ID is correct in environment variables
 
 2. **CORS Errors**
-   - Verify CORS policy includes your frontend origin
-   - Check that `AllowedMethods` includes `PUT`
-   - Ensure `ExposeHeaders` includes `ETag`
+   - Verify CORS policy includes your frontend origin (https://revui.app, https://www.revui.app)
+   - **Check that `AllowedMethods` includes `PUT`** (required for direct uploads)
+   - Ensure `ExposeHeaders` includes `Content-Length`, `Content-Type`, and `ETag`
+   - Do NOT include `POST` in AllowedMethods (we use PUT for S3-compatible uploads)
    - Clear browser cache and try again
 
 3. **Connection Errors**
