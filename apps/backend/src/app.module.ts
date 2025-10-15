@@ -1,4 +1,4 @@
-import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 
@@ -45,11 +45,11 @@ export class AppModule implements NestModule {
     consumer
       .apply(TenantContextMiddleware)
       .exclude(
-        'api/v1/auth/register',
-        'api/v1/auth/verify-email',
-        'api/v1/organizations/register',
-        'api/v1/organizations/verify-email',
-        'api/v1/health'
+        { path: 'api/v1/auth/register', method: RequestMethod.POST },
+        { path: 'api/v1/auth/verify-email', method: RequestMethod.GET },
+        { path: 'api/v1/organizations/register', method: RequestMethod.POST },
+        { path: 'api/v1/organizations/verify-email', method: RequestMethod.GET },
+        { path: 'api/v1/health', method: RequestMethod.GET }
       )
       .forRoutes('*');
   }
