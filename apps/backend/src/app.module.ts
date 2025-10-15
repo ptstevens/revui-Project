@@ -44,7 +44,13 @@ export class AppModule implements NestModule {
     // Apply tenant context middleware to all routes except public ones
     consumer
       .apply(TenantContextMiddleware)
-      .exclude('api/v1/auth/register', 'api/v1/auth/verify-email', 'api/v1/health')
+      .exclude(
+        'api/v1/auth/register',
+        'api/v1/auth/verify-email',
+        'api/v1/organizations/register',
+        'api/v1/organizations/verify-email',
+        'api/v1/health'
+      )
       .forRoutes('*');
   }
 }
