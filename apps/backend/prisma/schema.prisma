@@ -13,13 +13,17 @@ datasource db {
 // Organization (Tenant) Model
 // Each organization gets a unique tenant_id for multi-tenant isolation
 model Organization {
-  id           String   @id @default(uuid()) @db.Uuid
-  tenantId     String   @unique @default(uuid()) @map("tenant_id") @db.Uuid
-  name         String   @db.VarChar(255)
-  industry     String?  @db.VarChar(100)
-  companySize  String?  @map("company_size") @db.VarChar(50)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                      String   @id @default(uuid()) @db.Uuid
+  tenantId                String   @unique @default(uuid()) @map("tenant_id") @db.Uuid
+  name                    String   @db.VarChar(255)
+  industry                String?  @db.VarChar(100)
+  companySize             String?  @map("company_size") @db.VarChar(50)
+
+  // Story 1.2: Configurable magic link expiration (in hours, default 48)
+  magicLinkExpirationHours Int     @default(48) @map("magic_link_expiration_hours")
+
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   users        User[]
@@ -52,12 +56,22 @@ model User {
 
 // Magic Link Token Model
 // For passwordless authentication in the recording interface
+// Story 1.2: Enhanced with audit trail fields and user/task associations
 model MagicLink {
   id           String      @id @default(uuid()) @db.Uuid
   tenantId     String      @map("tenant_id") @db.Uuid
   tokenHash    String      @unique @map("token_hash") @db.VarChar(64)
   email        String      @db.VarChar(255)
   purpose      LinkPurpose @default(RECORDING)
+
+  // Story 1.2: Optional associations for future stories
+  userId       String?     @map("user_id") @db.Uuid
+  taskId       String?     @map("task_id") @db.Uuid
+
+  // Story 1.2: Audit trail fields
+  ipAddress    String?     @map("ip_address") @db.VarChar(45)
+  userAgent    String?     @map("user_agent") @db.Text
+
   expiresAt    DateTime    @map("expires_at") @db.Timestamp(6)
   usedAt       DateTime?   @map("used_at") @db.Timestamp(6)
   createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
@@ -68,14 +82,17 @@ model MagicLink {
   @@index([tenantId])
   @@index([tokenHash])
   @@index([expiresAt])
+  @@index([userId])
+  @@index([taskId])
   @@map("magic_links")
 }
 
 // Audit Log Model
 // Track all security-relevant events
+// Story 1.2: tenantId is optional to support global security events (e.g., invalid token attempts)
 model AuditLog {
   id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
+  tenantId  String?  @map("tenant_id") @db.Uuid
   userId    String?  @map("user_id") @db.Uuid
   action    String   @db.VarChar(100)
   resource  String   @db.VarChar(100)

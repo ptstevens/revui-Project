@@ -1,14 +1,20 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '@/common/services/prisma.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { EmailService } from '../email/email.service';
+import { MagicLinkService } from '@/common/services/magic-link.service';
 import { Prisma } from '@prisma/client';
+
+/**
+ * Story 1.2: Updated to use MagicLinkService for token validation
+ */
 
 @Injectable()
 export class OrganizationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly emailService: EmailService
+    private readonly emailService: EmailService,
+    private readonly magicLinkService: MagicLinkService
   ) {}
 
   /**
@@ -38,6 +44,7 @@ export class OrganizationsService {
     }
 
     // Create organization and admin user in a transaction
+    // Story 1.2: Magic link generation is now done outside transaction
     const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create organization
       const organization = await tx.organization.create({
@@ -58,26 +65,24 @@ export class OrganizationsService {
         },
       });
 
-      // Create email verification magic link (pass transaction client)
-      const verificationToken = await this.emailService.createVerificationToken(
-        organization.tenantId,
-        dto.adminEmail,
-        tx
-      );
-
       return {
         organization,
         adminUser,
-        verificationToken,
       };
     });
+
+    // Story 1.2: Create verification token using centralized MagicLinkService
+    const verificationToken = await this.emailService.createVerificationToken(
+      result.organization.tenantId,
+      dto.adminEmail
+    );
 
     // Send welcome email with verification link
     await this.emailService.sendWelcomeEmail(
       dto.adminEmail,
       dto.adminName,
       dto.organizationName,
-      result.verificationToken
+      verificationToken
     );
 
     // Return success response (without verification token)
@@ -119,49 +124,62 @@ export class OrganizationsService {
 
   /**
    * Verify email and activate organization
+   * Story 1.2: Updated to use MagicLinkService with enhanced security and audit trail
+   *
+   * @param token - Plain token from URL (not hash)
+   * @param ipAddress - Optional IP address for audit logging
+   * @param userAgent - Optional user agent for audit logging
    */
-  async verifyEmail(tokenHash: string) {
-    const magicLink = await this.prisma.magicLink.findUnique({
-      where: { tokenHash },
-      include: {
-        organization: true,
-      },
+  async verifyEmail(
+    token: string,
+    ipAddress?: string,
+    userAgent?: string
+  ) {
+    // Story 1.2: Use centralized MagicLinkService for validation
+    // This handles all security checks: expiration, one-time use, and audit logging
+    const validationResult = await this.magicLinkService.validate(token, {
+      ipAddress,
+      userAgent,
     });
 
-    if (!magicLink) {
-      throw new NotFoundException('Invalid verification link');
+    // Handle validation failure
+    if (!validationResult.success) {
+      switch (validationResult.errorCode) {
+        case 'INVALID_TOKEN':
+          throw new NotFoundException(validationResult.error);
+        case 'ALREADY_USED':
+        case 'EXPIRED':
+          throw new BadRequestException(validationResult.error);
+        default:
+          throw new BadRequestException('Token validation failed');
+      }
     }
 
-    if (magicLink.usedAt) {
-      throw new ConflictException('Verification link already used');
+    // Get organization details
+    const organization = await this.prisma.organization.findUnique({
+      where: { tenantId: validationResult.tenantId },
+      select: { name: true },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
     }
 
-    if (magicLink.expiresAt < new Date()) {
-      throw new ConflictException('Verification link expired');
-    }
-
-    // Mark magic link as used and verify user email
-    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.magicLink.update({
-        where: { id: magicLink.id },
-        data: { usedAt: new Date() },
-      });
-
-      await tx.user.updateMany({
-        where: {
-          tenantId: magicLink.tenantId,
-          email: magicLink.email,
-        },
-        data: {
-          emailVerifiedAt: new Date(),
-        },
-      });
+    // Mark user email as verified
+    await this.prisma.user.updateMany({
+      where: {
+        tenantId: validationResult.tenantId,
+        email: validationResult.email,
+      },
+      data: {
+        emailVerifiedAt: new Date(),
+      },
     });
 
     return {
       message: 'Email verified successfully',
-      organizationName: magicLink.organization.name,
-      email: magicLink.email,
+      organizationName: organization.name,
+      email: validationResult.email,
     };
   }
 }

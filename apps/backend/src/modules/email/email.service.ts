@@ -1,61 +1,35 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '@/common/services/prisma.service';
-import * as crypto from 'crypto';
+import { MagicLinkService } from '@/common/services/magic-link.service';
+import { LinkPurpose } from '@prisma/client';
 
+/**
+ * Story 1.2: Updated to use centralized MagicLinkService
+ */
 @Injectable()
 export class EmailService {
   constructor(
     private readonly configService: ConfigService,
-    private readonly prisma: PrismaService
+    private readonly magicLinkService: MagicLinkService
   ) {}
 
   /**
-   * Generate a cryptographically secure magic link token
-   * Returns both the token (to send in email) and tokenHash (to store in DB)
-   */
-  generateMagicLinkToken(): { token: string; tokenHash: string } {
-    // Generate 256-bit (32 bytes) cryptographically secure random token
-    const tokenBytes = crypto.randomBytes(32);
-    const token = tokenBytes.toString('base64url'); // URL-safe base64
-
-    // Hash the token for storage (SHA-256)
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-    return { token, tokenHash };
-  }
-
-  /**
    * Create a verification token for email verification
+   * Story 1.2: Updated to use MagicLinkService with configurable expiration
+   *
    * @param tenantId - The tenant ID
    * @param email - The email address
-   * @param prismaClient - Optional Prisma client (for transactions)
    */
   async createVerificationToken(
     tenantId: string,
-    email: string,
-    prismaClient?: any
+    email: string
   ): Promise<string> {
-    const { token, tokenHash } = this.generateMagicLinkToken();
-
-    // Token expires in 24 hours
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
-
-    // Use provided transaction client or default prisma instance
-    const prisma = prismaClient || this.prisma;
-
-    await prisma.magicLink.create({
-      data: {
-        tenantId,
-        tokenHash,
-        email,
-        purpose: 'EMAIL_VERIFICATION',
-        expiresAt,
-      },
+    // Use centralized MagicLinkService with organization's configured expiration
+    return await this.magicLinkService.generate({
+      tenantId,
+      email,
+      purpose: LinkPurpose.EMAIL_VERIFICATION,
     });
-
-    return token;
   }
 
   /**
