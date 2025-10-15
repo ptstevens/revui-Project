@@ -57,7 +57,7 @@ npm run dev
 
 ### 🌐 Option 4: Cloudflare Tunnel (Your Current Setup)
 
-You have `coolify-backend.revui.app` working via Cloudflare Tunnel. Here's how to set up PostgreSQL access:
+You have `api.revui.app` working via Cloudflare Tunnel. Here's how to set up PostgreSQL access:
 
 #### Setup 1: Backend on Coolify (Recommended - Internal Network)
 
@@ -72,7 +72,7 @@ DATABASE_URL="postgresql://revui:password@revui-postgres:5432/revui?schema=publi
 ✅ Backend and PostgreSQL communicate via Docker internal network
 ✅ No additional tunnel configuration needed
 
-**This is your best option** since your backend is already on Coolify via `coolify-backend.revui.app`.
+**This is your best option** since your backend is already on Coolify via `api.revui.app`.
 
 ---
 
@@ -97,7 +97,7 @@ credentials-file: /path/to/<tunnel-id>.json
 
 ingress:
   # Backend HTTP traffic
-  - hostname: coolify-backend.revui.app
+  - hostname: api.revui.app
     service: http://localhost:3000
 
   # PostgreSQL TCP traffic

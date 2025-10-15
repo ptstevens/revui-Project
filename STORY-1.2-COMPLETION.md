@@ -301,7 +301,7 @@ Provides admin endpoints for security monitoring:
 5. **Deploy to Production**:
    ```bash
    # Follow your deployment process (e.g., Docker, Coolify, etc.)
-   # Backend is at: https://coolify-backend.revui.app
+   # Backend is at: https://api.revui.app
    ```
 
 ### Environment Variables

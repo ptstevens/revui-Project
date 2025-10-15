@@ -14,7 +14,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://coolify-backend.revui.app',
+        target: 'https://api.revui.app',
         changeOrigin: true,
         secure: true,
       },
