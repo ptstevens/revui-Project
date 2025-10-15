@@ -176,6 +176,11 @@ export class UsersService {
       throw new BadRequestException('Invalid invitation link');
     }
 
+    // Ensure tenantId and userId are present
+    if (!validationResult.tenantId || !validationResult.userId) {
+      throw new BadRequestException('Invalid validation result - missing tenant or user information');
+    }
+
     // Update user invitation status
     const user = await this.prisma.user.updateMany({
       where: {

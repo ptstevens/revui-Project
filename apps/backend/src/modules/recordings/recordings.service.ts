@@ -341,6 +341,20 @@ export class RecordingsService {
   }
 
   /**
+   * Health check for R2 configuration
+   * Public endpoint - verifies R2 service is properly configured
+   */
+  async healthCheck() {
+    const r2Status = await this.s3Service.validateConfiguration();
+
+    return {
+      status: r2Status.configured ? 'healthy' : 'unhealthy',
+      r2: r2Status,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Helper: Log audit event
    */
   private async logAuditEvent(data: {

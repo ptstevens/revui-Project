@@ -33,6 +33,16 @@ export class RecordingsController {
   constructor(private readonly recordingsService: RecordingsService) {}
 
   /**
+   * Health check endpoint for R2 configuration
+   * Public endpoint - no authentication required
+   */
+  @Get('health')
+  @HttpCode(HttpStatus.OK)
+  async healthCheck() {
+    return this.recordingsService.healthCheck();
+  }
+
+  /**
    * Initiate a recording upload
    * Story 1.4 AC1
    *

@@ -51,7 +51,8 @@ export class AppModule implements NestModule {
         { path: 'auth/verify-email', method: RequestMethod.GET },
         { path: 'organizations/register', method: RequestMethod.POST },
         { path: 'organizations/verify-email', method: RequestMethod.GET },
-        { path: 'health', method: RequestMethod.GET }
+        { path: 'health', method: RequestMethod.GET },
+        { path: 'api/recordings/health', method: RequestMethod.GET }
       )
       .forRoutes('*');
   }
