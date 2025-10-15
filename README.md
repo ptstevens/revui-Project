@@ -59,9 +59,16 @@ Revui uses PostgreSQL Row-Level Security (RLS) for multi-tenant data isolation. 
 
 ## Documentation
 
-- [Solution Architecture](../docs/solution-architecture.md)
-- [Technical Specifications](../docs/tech-spec-epic-1.md)
-- [Product Requirements](../docs/PRD.md)
+- [Setup Guide](SETUP.md) - Comprehensive setup instructions for Coolify deployment
+- [Story 1.1 Completion Report](STORY-1.1-COMPLETION-REPORT.md) - Implementation details and validation
+
+## Current Status
+
+✅ **Story 1.1 Complete**: Multi-Tenant Organization Registration
+- Organization registration with email verification
+- PostgreSQL RLS for tenant isolation
+- Magic link authentication (SHA-256)
+- 15/15 unit tests passing
 
 ## License
 
