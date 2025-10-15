@@ -58,10 +58,11 @@ export class OrganizationsService {
         },
       });
 
-      // Create email verification magic link
+      // Create email verification magic link (pass transaction client)
       const verificationToken = await this.emailService.createVerificationToken(
         organization.tenantId,
-        dto.adminEmail
+        dto.adminEmail,
+        tx
       );
 
       return {

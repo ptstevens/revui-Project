@@ -27,15 +27,25 @@ export class EmailService {
 
   /**
    * Create a verification token for email verification
+   * @param tenantId - The tenant ID
+   * @param email - The email address
+   * @param prismaClient - Optional Prisma client (for transactions)
    */
-  async createVerificationToken(tenantId: string, email: string): Promise<string> {
+  async createVerificationToken(
+    tenantId: string,
+    email: string,
+    prismaClient?: any
+  ): Promise<string> {
     const { token, tokenHash } = this.generateMagicLinkToken();
 
     // Token expires in 24 hours
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    await this.prisma.magicLink.create({
+    // Use provided transaction client or default prisma instance
+    const prisma = prismaClient || this.prisma;
+
+    await prisma.magicLink.create({
       data: {
         tenantId,
         tokenHash,
