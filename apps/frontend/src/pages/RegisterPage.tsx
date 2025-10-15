@@ -1,9 +1,7 @@
 import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { organizationApi } from '../services/api';
 
 export default function RegisterPage() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);

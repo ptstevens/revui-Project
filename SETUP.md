@@ -4,7 +4,77 @@ This guide will help you set up the Revui application for local development usin
 
 ## Architecture Overview
 
-**Recommended Setup:**
+### Production Architecture (Current Deployment)
+
+**Revui is currently deployed in production with the following architecture:**
+
+- **Frontend**: https://revui.app - React application served from Coolify
+- **Backend API**: https://api.revui.app - NestJS application on Coolify
+- **Database**: PostgreSQL 14+ on Coolify (internal Docker network)
+- **Storage**: Cloudflare R2 for recording storage
+- **Infrastructure**: Coolify (self-hosted PaaS) with Cloudflare Tunnel
+- **Tunnel**: Managed by Coolify via Docker container (ID: `41469541-aabd-4175-ab2c-de4ded3bc8ea`)
+
+**Production Architecture Diagram:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  User's Browser                                                  │
+│  https://revui.app                                              │
+└──────────────────┬──────────────────────────────────────────────┘
+                   │
+                   │ Loads Frontend (React/Vite)
+                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Cloudflare CDN/Edge                                            │
+│  - Frontend assets from revui.app                               │
+│  - API requests to api.revui.app                                │
+└──────────────────┬──────────────────────────────────────────────┘
+                   │
+                   │ Via Cloudflare Tunnel
+                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Coolify Server (Self-Hosted)                                   │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  Cloudflared (Docker Container - Managed by Coolify)       │ │
+│  │  Routes: api.revui.app → localhost:3000                    │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                          │                                       │
+│                          │ Port 3000                             │
+│                          ▼                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  Docker Network (coolify)                                  │ │
+│  │                                                            │ │
+│  │  ┌──────────────────────┐   ┌──────────────────────┐     │ │
+│  │  │  revui-backend       │   │  revui-postgres      │     │ │
+│  │  │  NestJS API          │──▶│  PostgreSQL 14       │     │ │
+│  │  │  Port: 3000:3000     │   │  Internal only       │     │ │
+│  │  └──────────────────────┘   └──────────────────────┘     │ │
+│  │                                                            │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+                          │
+                          │ Recording uploads/downloads
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Cloudflare R2 (Object Storage)                                 │
+│  - Pre-signed URLs for uploads                                  │
+│  - Zero egress costs                                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Production Details:**
+- Backend container port mapping: `0.0.0.0:3000->3000/tcp` (exposed to host for tunnel)
+- PostgreSQL is NOT exposed externally (internal Docker network only)
+- Cloudflare Tunnel managed entirely by Coolify (no manual systemd service)
+- Frontend uses environment variable `VITE_API_URL=https://api.revui.app/api/v1` in production
+
+---
+
+### Development Setup Options
+
+**For local development, choose one of the following:**
 - **PostgreSQL**: Hosted on Coolify server (containerized, managed)
 - **Backend**: Optionally hosted on Coolify OR run locally
 - **Frontend**: Run locally for rapid development
@@ -55,13 +125,15 @@ npm run dev
 
 ---
 
-### 🌐 Option 4: Cloudflare Tunnel (Your Current Setup)
+### 🌐 Option 4: Cloudflare Tunnel (Production Setup)
 
-You have `api.revui.app` working via Cloudflare Tunnel. Here's how to set up PostgreSQL access:
+**Note:** Production is already configured with Cloudflare Tunnel managed by Coolify. This section is for understanding the production setup or configuring additional development access.
 
-#### Setup 1: Backend on Coolify (Recommended - Internal Network)
+#### Production Setup (Already Configured)
 
-**Your backend uses internal Docker network (NO tunnel needed for PostgreSQL):**
+**Backend on Coolify with Cloudflare Tunnel:**
+
+The production backend at `api.revui.app` is already configured with:
 
 ```bash
 # In Coolify backend environment variables:
@@ -70,15 +142,20 @@ DATABASE_URL="postgresql://revui:password@revui-postgres:5432/revui?schema=publi
 
 ✅ PostgreSQL never exposed externally - most secure
 ✅ Backend and PostgreSQL communicate via Docker internal network
-✅ No additional tunnel configuration needed
+✅ Cloudflare Tunnel managed by Coolify Docker container
+✅ Backend port 3000 exposed to host (`0.0.0.0:3000->3000/tcp`) for tunnel access
 
-**This is your best option** since your backend is already on Coolify via `api.revui.app`.
+**How it works:**
+1. Cloudflared Docker container routes `api.revui.app` → `localhost:3000` on Coolify server
+2. Backend container has port 3000 exposed to host network
+3. PostgreSQL stays internal (only accessible within Docker network)
+4. Frontend at `revui.app` calls API at `api.revui.app` using environment variable
 
 ---
 
-#### Setup 2: Dev Machine → PostgreSQL (For Local Development)
+#### Development Access: Local Backend → Coolify PostgreSQL
 
-If you want to run backend locally AND access PostgreSQL on Coolify:
+If you want to run backend locally on your dev machine AND access PostgreSQL on Coolify:
 
 **Step 1: Create PostgreSQL Cloudflare Tunnel (on Coolify server)**
 

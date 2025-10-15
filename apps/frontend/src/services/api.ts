@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// Use environment-specific API URL
+// Development: Uses Vite proxy (/api/v1 → https://api.revui.app)
+// Production: Uses direct API URL (https://api.revui.app/api/v1)
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },

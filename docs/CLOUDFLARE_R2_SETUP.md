@@ -198,12 +198,15 @@ SMTP_PASSWORD=your-app-password
 Verify R2 configuration in your backend:
 
 ```bash
-# Start your backend
+# Development: Start your local backend
 cd apps/backend
 npm run dev
 
-# Test configuration endpoint
+# Test development endpoint
 curl http://localhost:3000/api/v1/recordings/health
+
+# Production: Test production endpoint
+curl https://api.revui.app/api/v1/recordings/health
 ```
 
 Expected response:
@@ -222,7 +225,18 @@ Test the complete upload workflow:
 
 ```bash
 # Step 1: Initiate upload
+# Development:
 curl -X POST http://localhost:3000/api/v1/recordings/initiate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "taskId": "task-uuid",
+    "filename": "test-recording.webm",
+    "contentType": "video/webm"
+  }'
+
+# Production:
+curl -X POST https://api.revui.app/api/v1/recordings/initiate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
@@ -246,6 +260,7 @@ curl -X PUT "PRESIGNED_UPLOAD_URL" \
   --data-binary @test-recording.webm
 
 # Step 3: Complete upload
+# Development:
 curl -X POST http://localhost:3000/api/v1/recordings/{recordingId}/complete \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -255,8 +270,23 @@ curl -X POST http://localhost:3000/api/v1/recordings/{recordingId}/complete \
     "duration": 120
   }'
 
+# Production:
+curl -X POST https://api.revui.app/api/v1/recordings/{recordingId}/complete \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "s3Key": "tenant/task/user/timestamp_filename.webm",
+    "fileSize": 1024000,
+    "duration": 120
+  }'
+
 # Step 4: Get recording with download URL
+# Development:
 curl http://localhost:3000/api/v1/recordings/{recordingId} \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Production:
+curl https://api.revui.app/api/v1/recordings/{recordingId} \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 

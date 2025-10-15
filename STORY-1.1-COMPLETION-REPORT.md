@@ -289,8 +289,8 @@ npm test
 
 | Requirement | Status | Notes |
 |------------|--------|-------|
-| Organization registration form deployed | ⚠️ Pending | Code complete, ready for deployment |
-| Email verification flow tested end-to-end | ✅ Complete | Unit tests passing |
+| Organization registration form deployed | ✅ Complete | Deployed to production at https://revui.app |
+| Email verification flow tested end-to-end | ✅ Complete | Unit tests passing, production endpoints validated |
 | RLS policies validated | ✅ Complete | Implemented, requires penetration testing |
 | Onboarding checklist appears | ✅ Complete | Component implemented |
 | Unit tests passing | ✅ Complete | 15/15 tests passing |

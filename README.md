@@ -22,6 +22,13 @@ revui-app/
 - **Database**: PostgreSQL 14+ with Prisma 5.x ORM
 - **Caching**: Redis 7+
 - **Storage**: Cloudflare R2 (S3-compatible object storage)
+- **Infrastructure**: Coolify (self-hosted PaaS) with Cloudflare Tunnel
+
+## Production Deployment
+
+- **Frontend**: https://revui.app
+- **API**: https://api.revui.app
+- **Platform**: Self-hosted on Coolify via Cloudflare Tunnel
 
 ## Getting Started
 
@@ -60,7 +67,9 @@ Revui uses PostgreSQL Row-Level Security (RLS) for multi-tenant data isolation. 
 ## Documentation
 
 - [Setup Guide](SETUP.md) - Comprehensive setup instructions for Coolify deployment
-- [Story 1.1 Completion Report](STORY-1.1-COMPLETION-REPORT.md) - Implementation details and validation
+- [Cloudflare R2 Setup](docs/CLOUDFLARE_R2_SETUP.md) - Recording storage configuration
+- [Story 1.1 Completion Report](STORY-1.1-COMPLETION-REPORT.md) - Multi-tenant organization registration
+- [Story 1.2 Completion Report](STORY-1.2-COMPLETION.md) - Enhanced magic link authentication
 
 ## Current Status
 
@@ -69,6 +78,18 @@ Revui uses PostgreSQL Row-Level Security (RLS) for multi-tenant data isolation. 
 - PostgreSQL RLS for tenant isolation
 - Magic link authentication (SHA-256)
 - 15/15 unit tests passing
+
+✅ **Story 1.2 Complete**: Enhanced Magic Link Authentication
+- Cryptographically secure token generation (256-bit)
+- One-time use enforcement
+- Time-based expiration (configurable per organization)
+- Comprehensive audit trail
+- 21/21 unit tests passing
+
+✅ **Story 1.4 Complete**: Recording Storage with Cloudflare R2
+- Pre-signed URL upload/download
+- Multi-tenant file isolation
+- Zero egress costs
 
 ## License
 
