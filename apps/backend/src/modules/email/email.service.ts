@@ -114,6 +114,88 @@ export class EmailService {
   }
 
   /**
+   * Send user invitation email
+   * Story 1.3: User invitation with magic link
+   */
+  async sendInvitationEmail(
+    email: string,
+    name: string,
+    organizationName: string,
+    inviterName: string,
+    role: string,
+    invitationToken: string
+  ): Promise<void> {
+    const frontendUrl = this.configService.get('CORS_ORIGIN') || 'http://localhost:5173';
+    const invitationLink = `${frontendUrl}/accept-invitation?token=${invitationToken}`;
+
+    // Email template
+    const subject = `You've been invited to join ${organizationName} on Revui`;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #4F46E5; color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0;">You're Invited to Revui</h1>
+        </div>
+
+        <div style="padding: 30px; background-color: #f9f9f9;">
+          <p>Hi ${name},</p>
+
+          <p><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on Revui as a <strong>${role}</strong>.</p>
+
+          <p>Revui is a competency verification platform that helps organizations ensure quality and compliance through screen recordings of task completion.</p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${invitationLink}"
+               style="background-color: #4F46E5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Accept Invitation
+            </a>
+          </div>
+
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="background-color: #fff; padding: 10px; border: 1px solid #ddd; word-break: break-all;">
+            ${invitationLink}
+          </p>
+
+          <p><strong>This invitation link will expire in 48 hours.</strong></p>
+
+          <h3>What's Next?</h3>
+          <ol>
+            <li>Click the invitation link above</li>
+            <li>Set up your account</li>
+            <li>Start collaborating with your team</li>
+          </ol>
+
+          <p>If you weren't expecting this invitation or have any questions, please contact ${inviterName} or your organization administrator.</p>
+
+          <p>Best regards,<br>The Revui Team</p>
+        </div>
+
+        <div style="padding: 20px; text-align: center; color: #666; font-size: 12px;">
+          <p>&copy; ${new Date().getFullYear()} Revui. All rights reserved.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // In development, log the email instead of sending
+    if (this.configService.get('NODE_ENV') === 'development') {
+      console.log('\n📧 Invitation Email would be sent:');
+      console.log(`To: ${email}`);
+      console.log(`Subject: ${subject}`);
+      console.log(`Invitation Link: ${invitationLink}\n`);
+      return;
+    }
+
+    // TODO: Implement actual email sending with SendGrid or AWS SES
+    console.log('Email sending not yet configured. Invitation link:', invitationLink);
+  }
+
+  /**
    * Send task invitation email (for future stories)
    */
   async sendTaskInvitation(
@@ -121,6 +203,6 @@ export class EmailService {
     taskTitle: string,
     magicLinkToken: string
   ): Promise<void> {
-    // TODO: Implement for Story 1.3
+    // TODO: Implement for future story
   }
 }

@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { UsersModule } from './modules/users/users.module';
 import { EmailModule } from './modules/email/email.module';
+import { RecordingsModule } from './modules/recordings/recordings.module';
 
 // Services
 import { PrismaService } from './common/services/prisma.service';
@@ -26,6 +27,7 @@ import { PrismaService } from './common/services/prisma.service';
     OrganizationsModule,
     UsersModule,
     EmailModule,
+    RecordingsModule,
   ],
   providers: [
     PrismaService,
