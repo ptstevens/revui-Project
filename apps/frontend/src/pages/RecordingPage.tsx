@@ -7,6 +7,7 @@ import { checkBrowserSupport, isMobile, getRecordingConfig, getUnsupportedBrowse
 import { ScreenSelector } from '../components/ScreenSelector';
 import { SelectionConfirmation } from '../components/SelectionConfirmation';
 import { PreviewVideoTutorial } from '../components/PreviewVideoTutorial';
+import { RecordingControls } from '../components/RecordingControls';
 import type { RecordingPhase, WebRTCSupportInfo } from '../types/recording';
 
 /**
@@ -383,79 +384,21 @@ export const RecordingPage: React.FC = () => {
           />
         )}
 
-        {/* Recording Controls - Recording Phase */}
+        {/* Recording Controls - Recording Phase (Story 2.4) */}
         {phase === 'recording' && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-red-600 flex items-center">
-                  <span className="inline-block w-3 h-3 bg-red-600 rounded-full mr-2 animate-pulse"></span>
-                  Recording in Progress
-                </h2>
-                {selectedScreenType && (
-                  <p className="text-gray-600 mt-1">
-                    Screen Type: {selectedScreenType}
-                  </p>
-                )}
-                {selectedSourceName && (
-                  <p className="text-gray-600">
-                    Source: {selectedSourceName}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Recording Stats */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-gray-100 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-1">Duration</p>
-                <p className="text-3xl font-bold">{formatDuration(recorder.duration)}</p>
-              </div>
-              <div className="bg-gray-100 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-1">Estimated Size</p>
-                <p className="text-3xl font-bold">{formatFileSize(recorder.getEstimatedSize())}</p>
-              </div>
-            </div>
-
-            {/* Recording State */}
-            <div className="mb-6">
-              <p className="text-sm text-gray-600 mb-2">Status</p>
-              <p className="text-lg font-semibold capitalize">{recorder.state}</p>
-            </div>
-
-            {/* Control Buttons */}
-            <div className="flex gap-4">
-              {recorder.state === 'recording' && (
-                <button
-                  onClick={handlePauseRecording}
-                  className="bg-yellow-600 text-white px-6 py-2 rounded hover:bg-yellow-700"
-                >
-                  Pause
-                </button>
-              )}
-              {recorder.state === 'paused' && (
-                <button
-                  onClick={handleResumeRecording}
-                  className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-                >
-                  Resume
-                </button>
-              )}
-              <button
-                onClick={handleStopRecording}
-                className="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700"
-              >
-                Stop Recording
-              </button>
-              {/* Re-Selection Button (Story 2.2 AC#4) */}
-              <button
-                onClick={handleRequestReselection}
-                className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700"
-              >
-                Change Source
-              </button>
-            </div>
-          </div>
+          <RecordingControls
+            recordingState={recorder.state}
+            duration={recorder.duration}
+            estimatedSize={recorder.getEstimatedSize()}
+            screenType={selectedScreenType}
+            sourceName={selectedSourceName}
+            onPause={handlePauseRecording}
+            onResume={handleResumeRecording}
+            onStop={handleStopRecording}
+            onChangeSource={handleRequestReselection}
+            showMetadata={true}
+            showChangeSource={true}
+          />
         )}
 
         {/* Review Phase */}
