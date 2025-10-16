@@ -7,7 +7,7 @@ import { SessionMiddleware } from '../../common/middleware/session.middleware';
 import { MagicLinkService } from '../../common/services/magic-link.service';
 import { PrismaService } from '../../common/services/prisma.service';
 import { EmailService } from '../email/email.service';
-import { AuditService } from '../../common/services/audit.service';
+import { AuditModule } from '../audit/audit.module';
 
 /**
  * Story 1.7: Authentication & Session Management Module
@@ -32,6 +32,7 @@ import { AuditService } from '../../common/services/audit.service';
       }),
       inject: [ConfigService],
     }),
+    AuditModule,
   ],
   providers: [
     PrismaService,
@@ -39,7 +40,6 @@ import { AuditService } from '../../common/services/audit.service';
     SessionMiddleware,
     MagicLinkService,
     EmailService,
-    AuditService,
   ],
   controllers: [AuthController],
   exports: [JwtModule, SessionService, SessionMiddleware],
