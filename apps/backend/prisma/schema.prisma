@@ -22,12 +22,17 @@ model Organization {
   // Story 1.2: Configurable magic link expiration (in hours, default 48)
   magicLinkExpirationHours Int     @default(48) @map("magic_link_expiration_hours")
 
+  // Story 1.5: Configurable retention policy (in days, default 180 = 6 months)
+  // Options: 90 (3 months), 180 (6 months), 365 (1 year), 730 (2 years), or custom
+  defaultRetentionDays     Int     @default(180) @map("default_retention_days")
+
   createdAt               DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt               DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   users        User[]
   magicLinks   MagicLink[]
+  sessions     Session[]
 
   @@index([tenantId])
   @@map("organizations")
@@ -50,6 +55,9 @@ model User {
   // Story 1.3: Soft delete for deactivated users
   deactivatedAt   DateTime? @map("deactivated_at") @db.Timestamp(6)
 
+  // Story 2.3: User UI preferences (tutorial completion, theme, etc.)
+  preferences     Json?     @default("{}") @map("preferences") @db.JsonB
+
   emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamp(6)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
@@ -62,6 +70,7 @@ model User {
   @@index([email])
   @@index([invitedBy])
   @@index([deactivatedAt])
+  @@index([preferences], type: Gin)  // GIN index for JSONB queries
   @@map("users")
 }
 
@@ -100,27 +109,44 @@ model MagicLink {
 
 // Audit Log Model
 // Track all security-relevant events
-// Story 1.2: tenantId is optional to support global security events (e.g., invalid token attempts)
+// Story 1.2: Basic audit logging for magic links
+// Story 1.8: Enhanced comprehensive audit trail (7-year retention, immutable)
 model AuditLog {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String?  @map("tenant_id") @db.Uuid
-  userId    String?  @map("user_id") @db.Uuid
-  action    String   @db.VarChar(100)
-  resource  String   @db.VarChar(100)
-  ipAddress String?  @map("ip_address") @db.VarChar(45)
-  userAgent String?  @map("user_agent") @db.Text
-  metadata  Json?    @db.JsonB
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String?  @map("tenant_id") @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
 
-  @@index([tenantId])
+  // Story 1.8: Structured action tracking
+  action       String   @db.VarChar(100)          // e.g., "LOGIN", "LOGOUT", "CREATE", "UPDATE", "DELETE"
+  resourceType String   @map("resource_type") @db.VarChar(100)  // e.g., "USER", "TASK", "RECORDING", "SESSION"
+  resourceId   String?  @map("resource_id") @db.Uuid            // ID of the affected resource
+
+  // Story 1.8: Change tracking (for UPDATE actions)
+  oldValue     Json?    @map("old_value") @db.JsonB
+  newValue     Json?    @map("new_value") @db.JsonB
+
+  // Request context
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.Text
+
+  // Additional metadata
+  metadata     Json?    @db.JsonB
+
+  // Story 1.8: Immutable timestamp (7-year retention)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([tenantId, createdAt])  // For tenant-scoped queries with time range
   @@index([userId])
   @@index([action])
-  @@index([createdAt])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])  // For retention policy cleanup
   @@map("audit_logs")
 }
 
 // Recording Model
 // Story 1.4: Secure storage infrastructure for screen recordings
+// Story 1.5: Enhanced with retention policies and legal hold
+// Story 2.2: Enhanced with screen source metadata (screen_type, source_name)
 model Recording {
   id              String          @id @default(uuid()) @db.Uuid
   tenantId        String          @map("tenant_id") @db.Uuid
@@ -131,6 +157,19 @@ model Recording {
   duration        Int?            @map("duration")
   mimeType        String          @default("video/webm") @map("mime_type") @db.VarChar(50)
   uploadStatus    UploadStatus    @default(PENDING) @map("upload_status")
+
+  // Story 2.2: Screen source metadata
+  screenType      ScreenType?     @map("screen_type")
+  sourceName      String?         @map("source_name") @db.VarChar(255)
+
+  // Story 1.5: Retention policy and legal hold
+  retentionOverrideDays Int?      @map("retention_override_days")  // Override org default for this recording
+  scheduledDeletionAt   DateTime? @map("scheduled_deletion_at") @db.Timestamp(6)  // Calculated deletion date
+  legalHold             Boolean   @default(false) @map("legal_hold")  // Exempt from auto-deletion
+  legalHoldReason       String?   @map("legal_hold_reason") @db.Text
+  legalHoldBy           String?   @map("legal_hold_by") @db.Uuid  // User who applied legal hold
+  legalHoldAt           DateTime? @map("legal_hold_at") @db.Timestamp(6)
+
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
   completedAt     DateTime?       @map("completed_at") @db.Timestamp(6)
 
@@ -139,6 +178,9 @@ model Recording {
   @@index([userId])
   @@index([uploadStatus])
   @@index([createdAt])
+  @@index([scheduledDeletionAt])  // For automated cleanup queries
+  @@index([legalHold])  // For legal hold filtering
+  @@index([screenType])  // For screen source type filtering
   @@map("recordings")
 }
 
@@ -178,4 +220,45 @@ enum LinkPurpose {
   EMAIL_VERIFICATION
 
   @@map("link_purpose")
+}
+
+// Story 2.2: Screen source type for recording metadata
+enum ScreenType {
+  SCREEN   // Entire screen/monitor
+  WINDOW   // Application window
+  TAB      // Browser tab
+
+  @@map("screen_type")
+}
+
+// Session Model
+// Story 1.7: Authentication & Session Management
+// Supports multi-device sessions with httpOnly cookies
+model Session {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  tokenHash       String    @unique @map("token_hash") @db.VarChar(64)
+
+  // Session lifecycle
+  expiresAt       DateTime  @map("expires_at") @db.Timestamp(6)
+  lastActivityAt  DateTime  @default(now()) @map("last_activity_at") @db.Timestamp(6)
+  loggedOutAt     DateTime? @map("logged_out_at") @db.Timestamp(6)
+
+  // Device information for multi-device support
+  ipAddress       String?   @map("ip_address") @db.VarChar(45)
+  userAgent       String?   @map("user_agent") @db.Text
+  deviceName      String?   @map("device_name") @db.VarChar(255)
+
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  organization    Organization @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@index([loggedOutAt])
+  @@map("sessions")
 }

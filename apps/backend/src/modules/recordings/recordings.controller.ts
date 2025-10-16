@@ -122,4 +122,23 @@ export class RecordingsController {
   ) {
     return this.recordingsService.delete(tenantId, recordingId, userId, userRole);
   }
+
+  /**
+   * Get count of completed recordings for current user
+   * Story 2.3: 10-Second Preview Video Tutorial
+   *
+   * Used to determine if user is a first-time recorder
+   *
+   * @requires Any authenticated user
+   * @returns Object with count property
+   */
+  @Get('count')
+  @HttpCode(HttpStatus.OK)
+  async getRecordingCount(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const count = await this.recordingsService.countByUser(tenantId, userId);
+    return { count };
+  }
 }

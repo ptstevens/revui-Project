@@ -1,18 +1,24 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '@/common/services/prisma.service';
 import { S3Service } from '@/common/services/s3.service';
+import { RetentionPolicyService } from '@/common/services/retention-policy.service';
+import { AuditService } from '@/common/services/audit.service';
 import { InitiateUploadDto } from './dto/initiate-upload.dto';
 import { CompleteUploadDto } from './dto/complete-upload.dto';
 import { UploadStatus, UserRole } from '@prisma/client';
 
 /**
  * Story 1.4: Recording Storage Infrastructure Service
+ * Story 1.5: Enhanced with retention policy integration
+ * Story 1.8: Enhanced with audit trail integration
  */
 @Injectable()
 export class RecordingsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly s3Service: S3Service
+    private readonly s3Service: S3Service,
+    private readonly retentionPolicyService: RetentionPolicyService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -63,6 +69,9 @@ export class RecordingsService {
         fileSize: BigInt(0), // Will be updated on completion
         mimeType: dto.contentType || 'video/webm',
         uploadStatus: UploadStatus.PENDING,
+        // Story 2.2: Screen source metadata
+        screenType: dto.screenType,
+        sourceName: dto.sourceName,
       },
       select: {
         id: true,
@@ -72,16 +81,21 @@ export class RecordingsService {
       },
     });
 
-    // Log audit event
-    await this.logAuditEvent({
+    // Story 1.8: Log audit event
+    await this.auditService.log({
       tenantId,
       userId,
-      action: 'RECORDING_UPLOAD_INITIATED',
-      resource: 'recording',
-      metadata: {
+      action: 'CREATE',
+      resourceType: 'RECORDING',
+      resourceId: recording.id,
+      newValue: {
         recordingId: recording.id,
         taskId: dto.taskId,
         filename: dto.filename,
+        uploadStatus: 'PENDING',
+      },
+      metadata: {
+        action: 'upload_initiated',
       },
     });
 
@@ -132,14 +146,29 @@ export class RecordingsService {
       throw new BadRequestException(`Recording is already ${recording.uploadStatus}`);
     }
 
-    // Update recording with file metadata
+    // Story 1.5: Get organization retention policy
+    const organization = await this.prisma.organization.findUnique({
+      where: { tenantId },
+      select: { defaultRetentionDays: true },
+    });
+
+    // Calculate scheduled deletion date based on organization policy
+    const completedAt = new Date();
+    const scheduledDeletionAt = this.retentionPolicyService.calculateScheduledDeletion({
+      organizationRetentionDays: organization?.defaultRetentionDays || 180,
+      recordingRetentionOverrideDays: undefined, // No override on creation
+      createdAt: completedAt,
+    });
+
+    // Update recording with file metadata and retention policy
     const updatedRecording = await this.prisma.recording.update({
       where: { id: recordingId },
       data: {
         fileSize: BigInt(dto.fileSize),
         duration: dto.duration,
         uploadStatus: UploadStatus.COMPLETE,
-        completedAt: new Date(),
+        completedAt,
+        scheduledDeletionAt, // Story 1.5: Set scheduled deletion
       },
       select: {
         id: true,
@@ -148,19 +177,31 @@ export class RecordingsService {
         duration: true,
         uploadStatus: true,
         completedAt: true,
+        scheduledDeletionAt: true,
       },
     });
 
-    // Log audit event
-    await this.logAuditEvent({
+    // Story 1.8: Log audit event
+    await this.auditService.log({
       tenantId,
       userId,
-      action: 'RECORDING_UPLOAD_COMPLETED',
-      resource: 'recording',
-      metadata: {
-        recordingId: recording.id,
+      action: 'UPDATE',
+      resourceType: 'RECORDING',
+      resourceId: recording.id,
+      oldValue: {
+        uploadStatus: 'PENDING',
+        completedAt: null,
+        scheduledDeletionAt: null,
+      },
+      newValue: {
+        uploadStatus: 'COMPLETE',
+        completedAt,
+        scheduledDeletionAt,
         fileSize: dto.fileSize,
         duration: dto.duration,
+      },
+      metadata: {
+        action: 'upload_completed',
       },
     });
 
@@ -199,6 +240,8 @@ export class RecordingsService {
         duration: true,
         mimeType: true,
         uploadStatus: true,
+        screenType: true,      // Story 2.2
+        sourceName: true,      // Story 2.2
         createdAt: true,
         completedAt: true,
       },
@@ -257,14 +300,15 @@ export class RecordingsService {
       );
     }
 
-    // Log audit event
-    await this.logAuditEvent({
+    // Story 1.8: Log audit event
+    await this.auditService.log({
       tenantId,
       userId: requestingUserId,
-      action: 'RECORDING_ACCESSED',
-      resource: 'recording',
+      action: 'READ',
+      resourceType: 'RECORDING',
+      resourceId: recording.id,
       metadata: {
-        recordingId: recording.id,
+        action: 'recording_accessed',
         ownerId: recording.userId,
       },
     });
@@ -278,6 +322,8 @@ export class RecordingsService {
       duration: recording.duration,
       mimeType: recording.mimeType,
       uploadStatus: recording.uploadStatus,
+      screenType: recording.screenType,        // Story 2.2
+      sourceName: recording.sourceName,        // Story 2.2
       createdAt: recording.createdAt,
       completedAt: recording.completedAt,
       downloadUrl,
@@ -323,15 +369,20 @@ export class RecordingsService {
       where: { id: recordingId },
     });
 
-    // Log audit event
-    await this.logAuditEvent({
+    // Story 1.8: Log audit event
+    await this.auditService.log({
       tenantId,
       userId,
-      action: 'RECORDING_DELETED',
-      resource: 'recording',
-      metadata: {
-        recordingId: recording.id,
+      action: 'DELETE',
+      resourceType: 'RECORDING',
+      resourceId: recording.id,
+      oldValue: {
+        id: recording.id,
         s3Key: recording.s3Key,
+        uploadStatus: recording.uploadStatus,
+      },
+      metadata: {
+        action: 'recording_deleted',
       },
     });
 
@@ -355,23 +406,25 @@ export class RecordingsService {
   }
 
   /**
-   * Helper: Log audit event
+   * Count completed recordings for a user
+   * Story 2.3: 10-Second Preview Video Tutorial
+   *
+   * Used to determine if user is a first-time recorder
+   *
+   * @param tenantId - Organization's tenant ID
+   * @param userId - User ID
+   * @returns Count of completed recordings
    */
-  private async logAuditEvent(data: {
-    tenantId: string;
-    userId: string;
-    action: string;
-    resource: string;
-    metadata?: any;
-  }) {
-    await this.prisma.auditLog.create({
-      data: {
-        tenantId: data.tenantId,
-        userId: data.userId,
-        action: data.action,
-        resource: data.resource,
-        metadata: data.metadata || {},
+  async countByUser(tenantId: string, userId: string): Promise<number> {
+    const count = await this.prisma.recording.count({
+      where: {
+        tenantId,
+        userId,
+        uploadStatus: UploadStatus.COMPLETE,
       },
     });
+
+    return count;
   }
+
 }

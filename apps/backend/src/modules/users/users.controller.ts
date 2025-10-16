@@ -16,6 +16,7 @@ import {
 import { UsersService } from './users.service';
 import { BulkInviteUsersDto } from './dto/invite-users.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -151,5 +152,21 @@ export class UsersController {
     @CurrentUser('id') adminId: string,
   ) {
     return this.usersService.reactivate(tenantId, id, adminId);
+  }
+
+  /**
+   * Update current user's preferences
+   * Story 2.3: 10-Second Preview Video Tutorial
+   *
+   * @requires Any authenticated user (can only update their own preferences)
+   */
+  @Patch('me/preferences')
+  @UseGuards(RolesGuard)
+  @HttpCode(HttpStatus.OK)
+  async updatePreferences(
+    @Body() dto: UpdatePreferencesDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.usersService.updatePreferences(userId, dto.preferences);
   }
 }

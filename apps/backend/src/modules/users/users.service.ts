@@ -2,6 +2,7 @@ import { Injectable, ConflictException, NotFoundException, ForbiddenException, B
 import { PrismaService } from '@/common/services/prisma.service';
 import { EmailService } from '../email/email.service';
 import { MagicLinkService } from '@/common/services/magic-link.service';
+import { AuditService } from '@/common/services/audit.service';
 import { BulkInviteUsersDto } from './dto/invite-users.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole, LinkPurpose, InvitationStatus, Prisma } from '@prisma/client';
@@ -14,7 +15,8 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
-    private readonly magicLinkService: MagicLinkService
+    private readonly magicLinkService: MagicLinkService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -110,16 +112,20 @@ export class UsersService {
           invitationToken
         );
 
-        // Log audit event
-        await this.logAuditEvent({
+        // Log audit event - Story 1.8
+        await this.auditService.log({
           tenantId,
           userId: invitedById,
-          action: 'USER_INVITED',
-          resource: 'user',
-          metadata: {
-            invitedUserId: newUser.id,
-            invitedEmail: userInvite.email,
+          action: 'CREATE',
+          resourceType: 'USER',
+          resourceId: newUser.id,
+          newValue: {
+            email: userInvite.email,
             role: userInvite.role,
+            invitationStatus: 'PENDING',
+          },
+          metadata: {
+            action: 'user_invited',
           },
         });
 
@@ -204,16 +210,26 @@ export class UsersService {
       select: { name: true },
     });
 
-    // Log audit event
-    await this.logAuditEvent({
+    // Log audit event - Story 1.8
+    await this.auditService.log({
       tenantId: validationResult.tenantId,
       userId: validationResult.userId,
-      action: 'INVITATION_ACCEPTED',
-      resource: 'user',
-      ipAddress,
-      userAgent,
+      action: 'UPDATE',
+      resourceType: 'USER',
+      resourceId: validationResult.userId,
+      oldValue: {
+        invitationStatus: 'PENDING',
+        emailVerifiedAt: null,
+      },
+      newValue: {
+        invitationStatus: 'ACCEPTED',
+        emailVerifiedAt: new Date(),
+      },
       metadata: {
+        action: 'invitation_accepted',
         email: validationResult.email,
+        ipAddress,
+        userAgent,
       },
     });
 
@@ -351,15 +367,20 @@ export class UsersService {
       },
     });
 
-    // Log audit event
-    await this.logAuditEvent({
+    // Log audit event - Story 1.8
+    await this.auditService.log({
       tenantId,
       userId: adminId,
-      action: 'USER_UPDATED',
-      resource: 'user',
+      action: 'UPDATE',
+      resourceType: 'USER',
+      resourceId: userId,
+      oldValue: {
+        name: user.name,
+        role: user.role,
+      },
+      newValue: dto,
       metadata: {
-        targetUserId: userId,
-        changes: dto,
+        action: 'user_updated',
       },
     });
 
@@ -416,14 +437,21 @@ export class UsersService {
       data: { deactivatedAt: new Date() },
     });
 
-    // Log audit event
-    await this.logAuditEvent({
+    // Log audit event - Story 1.8
+    await this.auditService.log({
       tenantId,
       userId: adminId,
-      action: 'USER_DEACTIVATED',
-      resource: 'user',
+      action: 'UPDATE',
+      resourceType: 'USER',
+      resourceId: userId,
+      oldValue: {
+        deactivatedAt: null,
+      },
+      newValue: {
+        deactivatedAt: new Date(),
+      },
       metadata: {
-        targetUserId: userId,
+        action: 'user_deactivated',
         targetEmail: user.email,
       },
     });
@@ -476,14 +504,21 @@ export class UsersService {
       data: { deactivatedAt: null },
     });
 
-    // Log audit event
-    await this.logAuditEvent({
+    // Log audit event - Story 1.8
+    await this.auditService.log({
       tenantId,
       userId: adminId,
-      action: 'USER_REACTIVATED',
-      resource: 'user',
+      action: 'UPDATE',
+      resourceType: 'USER',
+      resourceId: userId,
+      oldValue: {
+        deactivatedAt: user.deactivatedAt,
+      },
+      newValue: {
+        deactivatedAt: null,
+      },
       metadata: {
-        targetUserId: userId,
+        action: 'user_reactivated',
         targetEmail: user.email,
       },
     });
@@ -494,27 +529,71 @@ export class UsersService {
   }
 
   /**
-   * Helper: Log audit event
+   * Update user preferences
+   * Story 2.3: 10-Second Preview Video Tutorial
+   *
+   * @param userId - User ID
+   * @param preferences - Preferences object to merge
+   * @returns Updated user with new preferences
    */
-  private async logAuditEvent(data: {
-    tenantId: string;
-    userId?: string;
-    action: string;
-    resource: string;
-    ipAddress?: string;
-    userAgent?: string;
-    metadata?: any;
-  }) {
-    await this.prisma.auditLog.create({
-      data: {
-        tenantId: data.tenantId,
-        userId: data.userId || null,
-        action: data.action,
-        resource: data.resource,
-        ipAddress: data.ipAddress || null,
-        userAgent: data.userAgent || null,
-        metadata: data.metadata || {},
+  async updatePreferences(userId: string, preferences: Record<string, any>) {
+    // Find user
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        tenantId: true,
+        preferences: true,
+        deactivatedAt: true,
       },
     });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.deactivatedAt) {
+      throw new ForbiddenException('Cannot update preferences for deactivated user');
+    }
+
+    // Merge new preferences with existing preferences
+    const currentPreferences = (user.preferences as Record<string, any>) || {};
+    const mergedPreferences = {
+      ...currentPreferences,
+      ...preferences,
+    };
+
+    // Update user preferences
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { preferences: mergedPreferences },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        preferences: true,
+        updatedAt: true,
+      },
+    });
+
+    // Log audit event - Story 1.8
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId,
+      action: 'UPDATE',
+      resourceType: 'USER',
+      resourceId: userId,
+      oldValue: {
+        preferences: currentPreferences,
+      },
+      newValue: {
+        preferences: mergedPreferences,
+      },
+      metadata: {
+        action: 'preferences_updated',
+      },
+    });
+
+    return updatedUser;
   }
 }
