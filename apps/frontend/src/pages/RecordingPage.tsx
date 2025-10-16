@@ -8,6 +8,7 @@ import { ScreenSelector } from '../components/ScreenSelector';
 import { SelectionConfirmation } from '../components/SelectionConfirmation';
 import { PreviewVideoTutorial } from '../components/PreviewVideoTutorial';
 import { RecordingControls } from '../components/RecordingControls';
+import { WebcamOverlay } from '../components/WebcamOverlay';
 import type { RecordingPhase, WebRTCSupportInfo } from '../types/recording';
 
 /**
@@ -386,19 +387,27 @@ export const RecordingPage: React.FC = () => {
 
         {/* Recording Controls - Recording Phase (Story 2.4) */}
         {phase === 'recording' && (
-          <RecordingControls
-            recordingState={recorder.state}
-            duration={recorder.duration}
-            estimatedSize={recorder.getEstimatedSize()}
-            screenType={selectedScreenType}
-            sourceName={selectedSourceName}
-            onPause={handlePauseRecording}
-            onResume={handleResumeRecording}
-            onStop={handleStopRecording}
-            onChangeSource={handleRequestReselection}
-            showMetadata={true}
-            showChangeSource={true}
-          />
+          <>
+            <RecordingControls
+              recordingState={recorder.state}
+              duration={recorder.duration}
+              estimatedSize={recorder.getEstimatedSize()}
+              screenType={selectedScreenType}
+              sourceName={selectedSourceName}
+              onPause={handlePauseRecording}
+              onResume={handleResumeRecording}
+              onStop={handleStopRecording}
+              onChangeSource={handleRequestReselection}
+              showMetadata={true}
+              showChangeSource={true}
+            />
+
+            {/* Story 2.5: Webcam Overlay */}
+            <WebcamOverlay
+              isRecording={phase === 'recording'}
+              onWebcamToggle={(enabled) => console.log('Webcam toggled:', enabled)}
+            />
+          </>
         )}
 
         {/* Review Phase */}

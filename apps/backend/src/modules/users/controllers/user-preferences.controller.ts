@@ -7,7 +7,7 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { RolesGuard } from '@/common/guards/roles.guard';
 import { UserPreferencesService } from '../services/user-preferences.service';
 import { UserPreferences } from '@/common/types/user-preferences.type';
 
@@ -16,7 +16,7 @@ import { UserPreferences } from '@/common/types/user-preferences.type';
  * Story 2.3: 10-Second Preview Video Tutorial
  */
 @Controller('api/user/preferences')
-@UseGuards(JwtAuthGuard)
+@UseGuards(RolesGuard)
 export class UserPreferencesController {
   constructor(
     private readonly userPreferencesService: UserPreferencesService,

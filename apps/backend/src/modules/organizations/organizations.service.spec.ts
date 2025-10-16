@@ -1,14 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { PrismaService } from '@/common/services/prisma.service';
 import { EmailService } from '../email/email.service';
+import { MagicLinkService } from '@/common/services/magic-link.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 
 describe('OrganizationsService', () => {
   let service: OrganizationsService;
   let prisma: PrismaService;
   let emailService: EmailService;
+  let magicLinkService: MagicLinkService;
 
   const mockPrismaService: any = {
     organization: {
@@ -21,11 +23,6 @@ describe('OrganizationsService', () => {
       create: jest.fn(),
       updateMany: jest.fn(),
     },
-    magicLink: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
     $transaction: jest.fn((callback: any) => callback(mockPrismaService)),
   };
 
@@ -34,18 +31,25 @@ describe('OrganizationsService', () => {
     sendWelcomeEmail: jest.fn(),
   };
 
+  const mockMagicLinkService = {
+    generate: jest.fn(),
+    validate: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrganizationsService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: EmailService, useValue: mockEmailService },
+        { provide: MagicLinkService, useValue: mockMagicLinkService },
       ],
     }).compile();
 
     service = module.get<OrganizationsService>(OrganizationsService);
     prisma = module.get<PrismaService>(PrismaService);
     emailService = module.get<EmailService>(EmailService);
+    magicLinkService = module.get<MagicLinkService>(MagicLinkService);
   });
 
   afterEach(() => {
@@ -132,35 +136,30 @@ describe('OrganizationsService', () => {
   });
 
   describe('verifyEmail', () => {
-    const mockTokenHash = 'token-hash';
+    const mockToken = 'verification-token';
 
     it('should successfully verify email', async () => {
-      const mockMagicLink = {
-        id: 'link-id',
+      const validationResult = {
+        success: true,
         tenantId: 'tenant-id',
-        tokenHash: mockTokenHash,
         email: 'admin@test.com',
-        purpose: 'EMAIL_VERIFICATION',
-        expiresAt: new Date(Date.now() + 3600000), // 1 hour from now
-        usedAt: null,
-        organization: {
-          name: 'Test Corp',
-        },
       };
 
-      mockPrismaService.magicLink.findUnique.mockResolvedValue(mockMagicLink);
-      mockPrismaService.magicLink.update.mockResolvedValue(mockMagicLink);
+      mockMagicLinkService.validate.mockResolvedValue(validationResult);
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        name: 'Test Corp',
+      });
       mockPrismaService.user.updateMany.mockResolvedValue({ count: 1 });
 
-      const result = await service.verifyEmail(mockTokenHash);
+      const result = await service.verifyEmail(mockToken);
 
       expect(result.message).toBe('Email verified successfully');
       expect(result.organizationName).toBe('Test Corp');
       expect(result.email).toBe('admin@test.com');
 
-      expect(mockPrismaService.magicLink.update).toHaveBeenCalledWith({
-        where: { id: 'link-id' },
-        data: { usedAt: expect.any(Date) },
+      expect(mockMagicLinkService.validate).toHaveBeenCalledWith(mockToken, {
+        ipAddress: undefined,
+        userAgent: undefined,
       });
 
       expect(mockPrismaService.user.updateMany).toHaveBeenCalledWith({
@@ -175,40 +174,33 @@ describe('OrganizationsService', () => {
     });
 
     it('should throw NotFoundException if magic link does not exist', async () => {
-      mockPrismaService.magicLink.findUnique.mockResolvedValue(null);
+      mockMagicLinkService.validate.mockResolvedValue({
+        success: false,
+        errorCode: 'INVALID_TOKEN',
+        error: 'Token not found',
+      });
 
-      await expect(service.verifyEmail(mockTokenHash)).rejects.toThrow(NotFoundException);
-      await expect(service.verifyEmail(mockTokenHash)).rejects.toThrow('Invalid verification link');
+      await expect(service.verifyEmail(mockToken)).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ConflictException if magic link already used', async () => {
-      const mockMagicLink = {
-        id: 'link-id',
-        tokenHash: mockTokenHash,
-        usedAt: new Date(),
-        expiresAt: new Date(Date.now() + 3600000),
-        organization: { name: 'Test Corp' },
-      };
+    it('should throw BadRequestException if magic link already used', async () => {
+      mockMagicLinkService.validate.mockResolvedValue({
+        success: false,
+        errorCode: 'ALREADY_USED',
+        error: 'Verification link already used',
+      });
 
-      mockPrismaService.magicLink.findUnique.mockResolvedValue(mockMagicLink);
-
-      await expect(service.verifyEmail(mockTokenHash)).rejects.toThrow(ConflictException);
-      await expect(service.verifyEmail(mockTokenHash)).rejects.toThrow('Verification link already used');
+      await expect(service.verifyEmail(mockToken)).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw ConflictException if magic link expired', async () => {
-      const mockMagicLink = {
-        id: 'link-id',
-        tokenHash: mockTokenHash,
-        usedAt: null,
-        expiresAt: new Date(Date.now() - 3600000), // 1 hour ago
-        organization: { name: 'Test Corp' },
-      };
+    it('should throw BadRequestException if magic link expired', async () => {
+      mockMagicLinkService.validate.mockResolvedValue({
+        success: false,
+        errorCode: 'EXPIRED',
+        error: 'Verification link expired',
+      });
 
-      mockPrismaService.magicLink.findUnique.mockResolvedValue(mockMagicLink);
-
-      await expect(service.verifyEmail(mockTokenHash)).rejects.toThrow(ConflictException);
-      await expect(service.verifyEmail(mockTokenHash)).rejects.toThrow('Verification link expired');
+      await expect(service.verifyEmail(mockToken)).rejects.toThrow(BadRequestException);
     });
   });
 

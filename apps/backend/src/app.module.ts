@@ -13,6 +13,8 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { UsersModule } from './modules/users/users.module';
 import { EmailModule } from './modules/email/email.module';
 import { RecordingsModule } from './modules/recordings/recordings.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { RetentionModule } from './modules/retention/retention.module';
 
 // Services
 import { PrismaService } from './common/services/prisma.service';
@@ -28,6 +30,8 @@ import { PrismaService } from './common/services/prisma.service';
     UsersModule,
     EmailModule,
     RecordingsModule,
+    AuditModule,
+    RetentionModule,
   ],
   providers: [
     PrismaService,

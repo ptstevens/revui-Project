@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import OnboardingPage from './pages/OnboardingPage';
+import { RecordingPage } from './pages/RecordingPage';
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/recording/:sessionId" element={<RecordingPage />} />
         <Route path="/" element={<RegisterPage />} />
       </Routes>
     </div>

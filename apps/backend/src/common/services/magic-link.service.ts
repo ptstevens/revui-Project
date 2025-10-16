@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { AuditService } from './audit.service';
 import * as crypto from 'crypto';
 import { LinkPurpose } from '@prisma/client';
 
@@ -18,6 +19,8 @@ export interface MagicLinkValidationResult {
   tenantId?: string;
   email?: string;
   userId?: string;
+  name?: string;
+  role?: string;
   taskId?: string;
   purpose?: LinkPurpose;
   error?: string;
@@ -31,17 +34,22 @@ export interface AccessAttemptData {
 
 /**
  * Story 1.2: Enhanced Magic Link Service
+ * Story 1.8: Enhanced with AuditService integration
  *
  * Provides centralized management of magic link tokens with:
  * - Cryptographically secure 256-bit token generation
  * - Configurable expiration times per organization
  * - One-time use enforcement
- * - Comprehensive audit logging
+ * - Comprehensive audit logging via AuditService
  * - Enhanced error handling
  */
 @Injectable()
 export class MagicLinkService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => AuditService))
+    private readonly auditService: AuditService,
+  ) {}
 
   /**
    * Generate a cryptographically secure magic link token
@@ -107,20 +115,13 @@ export class MagicLinkService {
       },
     });
 
-    // AC4: Audit trail - Log token generation
-    await this.logAuditEvent({
+    // Story 1.8: Audit trail - Log magic link generation
+    await this.auditService.logMagicLinkAccess(
+      'MAGIC_LINK_SENT',
       tenantId,
-      userId,
-      action: 'MAGIC_LINK_GENERATED',
-      resource: 'magic_link',
-      metadata: {
-        magicLinkId: magicLink.id,
-        email,
-        purpose,
-        expiresAt: expiresAt.toISOString(),
-        expirationHours: expiresInHours,
-      },
-    });
+      email,
+      magicLink.id,
+    );
 
     // Return plain token (to be sent in email)
     return token;
@@ -149,30 +150,10 @@ export class MagicLinkService {
       where: { tokenHash },
     });
 
-    // AC4: Audit trail - Log access attempt
-    const auditMetadata: any = {
-      tokenHash: tokenHash.substring(0, 8) + '...', // Don't log full hash
-      ipAddress: accessData?.ipAddress,
-      userAgent: accessData?.userAgent,
-      timestamp: new Date().toISOString(),
-    };
-
     // Validate token existence
     if (!magicLink) {
-      await this.logAuditEvent({
-        tenantId: null, // Unknown tenant for invalid tokens
-        userId: null,
-        action: 'MAGIC_LINK_ACCESS_FAILED',
-        resource: 'magic_link',
-        ipAddress: accessData?.ipAddress,
-        userAgent: accessData?.userAgent,
-        metadata: {
-          ...auditMetadata,
-          reason: 'INVALID_TOKEN',
-          error: 'Token not found in database',
-        },
-      });
-
+      // Story 1.8: Log failed access attempt (unknown token)
+      // Note: We can't log with tenantId/userId since we don't have the magic link
       return {
         success: false,
         error: 'Invalid link. Please check the URL or contact your administrator.',
@@ -182,21 +163,15 @@ export class MagicLinkService {
 
     // AC2: Check if already used
     if (magicLink.usedAt) {
-      await this.logAuditEvent({
-        tenantId: magicLink.tenantId,
-        userId: magicLink.userId,
-        action: 'MAGIC_LINK_ACCESS_FAILED',
-        resource: 'magic_link',
-        ipAddress: accessData?.ipAddress,
-        userAgent: accessData?.userAgent,
-        metadata: {
-          ...auditMetadata,
-          magicLinkId: magicLink.id,
-          reason: 'ALREADY_USED',
-          usedAt: magicLink.usedAt.toISOString(),
-          error: 'Token has already been used',
-        },
-      });
+      // Story 1.8: Log failed access attempt (already used)
+      await this.auditService.logMagicLinkAccess(
+        'MAGIC_LINK_FAILED',
+        magicLink.tenantId,
+        magicLink.email,
+        magicLink.id,
+        accessData?.ipAddress,
+        accessData?.userAgent,
+      );
 
       return {
         success: false,
@@ -207,27 +182,33 @@ export class MagicLinkService {
 
     // AC3: Check if expired
     if (new Date() > magicLink.expiresAt) {
-      await this.logAuditEvent({
-        tenantId: magicLink.tenantId,
-        userId: magicLink.userId,
-        action: 'MAGIC_LINK_ACCESS_FAILED',
-        resource: 'magic_link',
-        ipAddress: accessData?.ipAddress,
-        userAgent: accessData?.userAgent,
-        metadata: {
-          ...auditMetadata,
-          magicLinkId: magicLink.id,
-          reason: 'EXPIRED',
-          expiresAt: magicLink.expiresAt.toISOString(),
-          error: 'Token has expired',
-        },
-      });
+      // Story 1.8: Log failed access attempt (expired)
+      await this.auditService.logMagicLinkAccess(
+        'MAGIC_LINK_FAILED',
+        magicLink.tenantId,
+        magicLink.email,
+        magicLink.id,
+        accessData?.ipAddress,
+        accessData?.userAgent,
+      );
 
       return {
         success: false,
         error: 'This link has expired. Contact your administrator for a new link.',
         errorCode: 'EXPIRED',
       };
+    }
+
+    // Load user information if userId is present
+    let userInfo: { name?: string; role?: string } = {};
+    if (magicLink.userId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: magicLink.userId },
+        select: { name: true, role: true },
+      });
+      if (user) {
+        userInfo = { name: user.name, role: user.role };
+      }
     }
 
     // Mark token as used and store access data
@@ -240,21 +221,15 @@ export class MagicLinkService {
       },
     });
 
-    // AC4: Audit trail - Log successful access
-    await this.logAuditEvent({
-      tenantId: magicLink.tenantId,
-      userId: magicLink.userId,
-      action: 'MAGIC_LINK_ACCESS_SUCCESS',
-      resource: 'magic_link',
-      ipAddress: accessData?.ipAddress,
-      userAgent: accessData?.userAgent,
-      metadata: {
-        ...auditMetadata,
-        magicLinkId: magicLink.id,
-        email: magicLink.email,
-        purpose: magicLink.purpose,
-      },
-    });
+    // Story 1.8: Log successful magic link access
+    await this.auditService.logMagicLinkAccess(
+      'MAGIC_LINK_USED',
+      magicLink.tenantId,
+      magicLink.email,
+      magicLink.id,
+      accessData?.ipAddress,
+      accessData?.userAgent,
+    );
 
     return {
       success: true,
@@ -262,6 +237,8 @@ export class MagicLinkService {
       tenantId: magicLink.tenantId,
       email: magicLink.email,
       userId: magicLink.userId || undefined,
+      name: userInfo.name,
+      role: userInfo.role,
       taskId: magicLink.taskId || undefined,
       purpose: magicLink.purpose,
     };
@@ -350,31 +327,5 @@ export class MagicLinkService {
       uniqueTokens: tokens.size,
       collisions: count - tokens.size,
     };
-  }
-
-  /**
-   * Helper: Log audit event
-   * Story 1.2: Logs all security events, including those without a tenant (e.g., invalid token attempts)
-   */
-  private async logAuditEvent(data: {
-    tenantId: string | null;
-    userId?: string | null;
-    action: string;
-    resource: string;
-    ipAddress?: string;
-    userAgent?: string;
-    metadata?: any;
-  }) {
-    await this.prisma.auditLog.create({
-      data: {
-        tenantId: data.tenantId,
-        userId: data.userId || null,
-        action: data.action,
-        resource: data.resource,
-        ipAddress: data.ipAddress || null,
-        userAgent: data.userAgent || null,
-        metadata: data.metadata || {},
-      },
-    });
   }
 }

@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, Max, IsEnum } from 'class-validator';
+import { ScreenType } from '@prisma/client';
 
 export class InitiateUploadDto {
   @IsString()
@@ -18,4 +19,13 @@ export class InitiateUploadDto {
   @Min(60)
   @Max(86400) // Max 24 hours
   urlExpiresIn?: number;
+
+  // Story 2.2: Screen source metadata
+  @IsOptional()
+  @IsEnum(ScreenType)
+  screenType?: ScreenType;
+
+  @IsOptional()
+  @IsString()
+  sourceName?: string;
 }
