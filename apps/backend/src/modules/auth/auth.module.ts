@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { SessionService } from '../../common/services/session.service';
 import { SessionMiddleware } from '../../common/middleware/session.middleware';
 import { MagicLinkService } from '../../common/services/magic-link.service';
+import { PasswordService } from '../../common/services/password.service';
 import { PrismaService } from '../../common/services/prisma.service';
 import { EmailService } from '../email/email.service';
 import { AuditModule } from '../audit/audit.module';
@@ -12,11 +13,14 @@ import { AuditModule } from '../audit/audit.module';
 /**
  * Story 1.7: Authentication & Session Management Module
  * Story 1.8: Enhanced with audit logging
+ * Refactor: Added password-based authentication
  *
  * Provides:
+ * - Password-based signup and login
  * - Session-based authentication with httpOnly cookies
  * - Multi-device session management
- * - Login via magic links
+ * - Login via magic links (for task recipients)
+ * - Password management (change password)
  * - Session validation middleware
  * - Comprehensive audit logging for authentication events
  */
@@ -39,6 +43,7 @@ import { AuditModule } from '../audit/audit.module';
     SessionService,
     SessionMiddleware,
     MagicLinkService,
+    PasswordService,
     EmailService,
   ],
   controllers: [AuthController],

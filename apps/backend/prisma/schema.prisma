@@ -41,11 +41,13 @@ model Organization {
 // User Model
 // All users belong to an organization (tenant)
 // Story 1.3: Added role-based access control and user invitation support
+// Refactor: Added password authentication for platform users
 model User {
   id              String    @id @default(uuid()) @db.Uuid
   tenantId        String    @map("tenant_id") @db.Uuid
   email           String    @db.VarChar(255)
   name            String    @db.VarChar(255)
+  passwordHash    String?   @map("password_hash") @db.VarChar(255)  // Nullable for backward compatibility
   role            UserRole  @default(USER)
 
   // Story 1.3: User invitation tracking

@@ -69,7 +69,7 @@ export class AuditService {
    * Story 1.8: AC2 - Critical Actions Logged
    */
   async logAuth(
-    action: 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED',
+    action: 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED' | 'SIGNUP' | 'PASSWORD_CHANGE',
     tenantId: string,
     userId: string,
     ipAddress?: string,
