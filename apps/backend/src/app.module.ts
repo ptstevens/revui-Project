@@ -51,10 +51,18 @@ export class AppModule implements NestModule {
     consumer
       .apply(TenantContextMiddleware)
       .exclude(
+        // Authentication endpoints (public)
+        { path: 'auth/signup', method: RequestMethod.POST },
+        { path: 'auth/login', method: RequestMethod.POST },
+        { path: 'auth/magic-login', method: RequestMethod.POST },
+        { path: 'auth/logout', method: RequestMethod.POST },
+        // Legacy authentication endpoints (backward compatibility)
         { path: 'auth/register', method: RequestMethod.POST },
         { path: 'auth/verify-email', method: RequestMethod.GET },
+        // Organization endpoints (public)
         { path: 'organizations/register', method: RequestMethod.POST },
         { path: 'organizations/verify-email', method: RequestMethod.GET },
+        // Health check endpoints
         { path: 'health', method: RequestMethod.GET },
         { path: 'recordings/health', method: RequestMethod.GET }
       )
