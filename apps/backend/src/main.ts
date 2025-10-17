@@ -14,9 +14,13 @@ async function bootstrap() {
     })
   );
 
-  // CORS configuration
+  // CORS configuration - Support multiple origins for local dev + production
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',')
+    : ['http://localhost:5173', 'https://revui.app'];
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
   });
 
