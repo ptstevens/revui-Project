@@ -70,6 +70,7 @@ Revui uses PostgreSQL Row-Level Security (RLS) for multi-tenant data isolation. 
 - [Cloudflare R2 Setup](docs/CLOUDFLARE_R2_SETUP.md) - Recording storage configuration
 - [Story 1.1 Completion Report](STORY-1.1-COMPLETION-REPORT.md) - Multi-tenant organization registration
 - [Story 1.2 Completion Report](STORY-1.2-COMPLETION.md) - Enhanced magic link authentication
+- [Authentication Refactor](AUTHENTICATION-REFACTOR.md) - Dual authentication system (password + magic link)
 
 ## Current Status
 
@@ -90,6 +91,14 @@ Revui uses PostgreSQL Row-Level Security (RLS) for multi-tenant data isolation. 
 - Pre-signed URL upload/download
 - Multi-tenant file isolation
 - Zero egress costs
+
+✅ **Authentication Refactor Complete**: Dual Authentication System
+- **Platform Users**: Email/password signup and login with bcrypt (12 rounds)
+- **Task Recipients**: Magic link authentication (unchanged)
+- Password strength validation and change password functionality
+- Frontend login/register pages with user header and logout
+- Full backward compatibility with existing magic link flow
+- See [AUTHENTICATION-REFACTOR.md](AUTHENTICATION-REFACTOR.md) for complete details
 
 ## License
 

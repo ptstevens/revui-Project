@@ -186,6 +186,37 @@ This epic delivers the complete platform foundation including:
 **API Endpoints:** 5 authentication endpoints
 **Migration:** `005_stories_1_5_1_7_1_8_retention_sessions_audit/` (partial)
 
+#### 📝 Authentication Refactor (October 2025)
+
+**Status:** ✅ Complete - Dual Authentication System Implemented
+
+**What Changed:**
+Story 1.7 was enhanced with a comprehensive authentication refactor to support dual authentication modes:
+- **Platform Users** (organization admins, reviewers, users): Email/password signup and login
+- **Task Recipients** (external users submitting recordings): Magic link authentication (unchanged)
+
+**Key Additions:**
+- Password authentication with bcrypt (12 salt rounds)
+- Password strength validation (8+ chars, uppercase, lowercase, number/special char)
+- Frontend login/register pages with email/password fields
+- User header component with logout functionality
+- Change password endpoint for authenticated users
+- Full backward compatibility with existing magic link flow
+
+**New Files:**
+- `apps/backend/src/common/services/password.service.ts` - Password hashing and validation
+- `apps/backend/src/modules/auth/dto/signup.dto.ts` - Signup validation
+- `apps/backend/src/modules/auth/dto/login.dto.ts` - Login validation
+- `apps/backend/src/modules/auth/dto/change-password.dto.ts` - Password change validation
+- `apps/frontend/src/pages/LoginPage.tsx` - Login page
+- `apps/frontend/src/components/Header.tsx` - User header with logout
+
+**Migration:** `008_add_password_authentication/migration.sql` - Added `password_hash` column to users table
+
+**Documentation:** See [AUTHENTICATION-REFACTOR.md](AUTHENTICATION-REFACTOR.md) for complete technical details
+
+This refactor clarifies the authentication architecture: platform users now have a traditional login experience while task recipients continue using the passwordless magic link flow.
+
 ---
 
 ### Story 1.8: Audit Trail & Compliance Logging (5 points)

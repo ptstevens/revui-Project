@@ -349,6 +349,82 @@ CREATE INDEX "sessions_logged_out_at_idx" ON "sessions"("logged_out_at");
 **Tests:**
 - `apps/backend/src/common/services/session.service.spec.ts` (passing)
 
+### 📝 Authentication Refactor (October 2025)
+
+**Status:** ✅ Complete - Dual Authentication System Implemented
+
+**What Changed:**
+Story 1.7 was enhanced with a comprehensive authentication refactor to support dual authentication modes:
+- **Platform Users** (organization admins, reviewers, users): Email/password signup and login
+- **Task Recipients** (external users submitting recordings): Magic link authentication (unchanged)
+
+This refactor clarifies the authentication architecture: the original Story 1.7 implementation focused on magic links for ALL users. The refactor adds password-based authentication for platform users while maintaining the magic link flow for task recipients.
+
+**Business Context:**
+The original system used magic links for all authentication, but this created confusion for platform users who expected traditional email/password login. Magic links are better suited for guest/one-time access (task recipients). The refactor provides:
+- Traditional login experience for platform administrators and internal users
+- Passwordless magic link authentication for external task recipients
+- Clear distinction between platform members and external users
+
+**Technical Implementation:**
+
+**Backend Changes:**
+- Added `password_hash` column to users table (migration 008)
+- Created `PasswordService` with bcrypt hashing (12 salt rounds)
+- Created DTOs: `SignupDto`, `LoginDto`, `ChangePasswordDto`
+- Added new endpoints: `POST /auth/signup`, `POST /auth/login`, `POST /auth/change-password`
+- Renamed `POST /auth/login` → `POST /auth/magic-login` (for task recipients)
+- Extended `AuditService` to support SIGNUP and PASSWORD_CHANGE actions
+- Password strength validation: 8+ chars, uppercase, lowercase, number/special char
+
+**Frontend Changes:**
+- Created `LoginPage.tsx` (127 lines) - Email/password login page
+- Created `Header.tsx` (110 lines) - User header with logout functionality
+- Updated `RegisterPage.tsx` - Added password fields, removed magic link flow
+- Updated `api.ts` - Added `withCredentials: true` for cookie support
+- Updated `OnboardingPage.tsx` - Added Header component
+- Updated `App.tsx` - Added `/login` route, changed default route
+
+**New Files Created:**
+- `apps/backend/src/common/services/password.service.ts` (69 lines)
+- `apps/backend/src/modules/auth/dto/signup.dto.ts` (40 lines)
+- `apps/backend/src/modules/auth/dto/login.dto.ts` (25 lines)
+- `apps/backend/src/modules/auth/dto/change-password.dto.ts` (33 lines)
+- `apps/frontend/src/pages/LoginPage.tsx` (127 lines)
+- `apps/frontend/src/components/Header.tsx` (110 lines)
+- `apps/backend/prisma/migrations/008_add_password_authentication/migration.sql`
+
+**Security Considerations:**
+- Bcrypt password hashing with 12 salt rounds
+- Password validation enforces strong passwords
+- httpOnly cookies maintained for session security
+- Full backward compatibility with existing magic link flow
+- Audit logging for SIGNUP and PASSWORD_CHANGE events
+
+**User Flows:**
+1. **Platform User Signup:** Register with org name, name, email, password → Auto-verify email → Create session → Redirect to onboarding
+2. **Platform User Login:** Enter email/password → Validate credentials → Create session → Redirect to onboarding
+3. **Task Recipient:** Receive magic link → Click link → Validate token → Create session → Complete task (unchanged)
+
+**API Endpoints:**
+- `POST /auth/signup` - Register organization + admin with password (new)
+- `POST /auth/login` - Login with email/password (new)
+- `POST /auth/magic-login` - Login with magic link (renamed from `/auth/login`)
+- `POST /auth/change-password` - Change password for authenticated user (new)
+- `POST /auth/logout` - Logout current session (unchanged)
+- `GET /auth/sessions` - Get all active sessions (unchanged)
+- `DELETE /auth/sessions/:id` - Invalidate specific session (unchanged)
+- `POST /auth/logout-all` - Logout from all devices (unchanged)
+
+**Documentation:** See [AUTHENTICATION-REFACTOR.md](AUTHENTICATION-REFACTOR.md) for complete technical details including:
+- Complete implementation guide
+- Security analysis
+- Testing checklist
+- Deployment instructions
+- Future enhancements
+
+**Breaking Changes:** None - Fully backward compatible with existing magic link authentication
+
 ---
 
 ## Story 1.8: Audit Trail & Compliance Logging

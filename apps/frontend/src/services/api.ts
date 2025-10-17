@@ -8,6 +8,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Required for httpOnly cookie sessions
 });
 
 export interface RegisterOrganizationData {
@@ -43,6 +44,69 @@ export const organizationApi = {
 
   verifyEmail: (token: string): Promise<VerifyEmailResponse> => {
     return api.get(`/organizations/verify-email?token=${token}`);
+  },
+};
+
+// Authentication API - Refactor: Added password-based authentication
+export interface SignupData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  name: string;
+  organizationName: string;
+}
+
+export interface LoginData {
+  email: string;
+  password: string;
+  deviceName?: string;
+}
+
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}
+
+export interface AuthResponse {
+  data: {
+    success: boolean;
+    message: string;
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+    };
+    organization?: {
+      id: string;
+      name: string;
+    };
+  };
+}
+
+export interface LogoutResponse {
+  data: {
+    success: boolean;
+    message: string;
+  };
+}
+
+export const authApi = {
+  signup: (data: SignupData): Promise<AuthResponse> => {
+    return api.post('/auth/signup', data);
+  },
+
+  login: (data: LoginData): Promise<AuthResponse> => {
+    return api.post('/auth/login', data);
+  },
+
+  logout: (): Promise<LogoutResponse> => {
+    return api.post('/auth/logout');
+  },
+
+  changePassword: (data: ChangePasswordData): Promise<LogoutResponse> => {
+    return api.post('/auth/change-password', data);
   },
 };
 

@@ -1,17 +1,18 @@
 import { useState, FormEvent } from 'react';
-import { organizationApi } from '../services/api';
+import { useNavigate, Link } from 'react-router-dom';
+import { authApi } from '../services/api';
 
 export default function RegisterPage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
     organizationName: '',
-    adminEmail: '',
-    adminName: '',
-    industry: '',
-    companySize: '',
+    email: '',
+    name: '',
+    password: '',
+    confirmPassword: '',
   });
 
   const handleSubmit = async (e: FormEvent) => {
@@ -19,48 +20,32 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
 
+    // Validate passwords match on client side
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await organizationApi.register(formData);
-      setSuccess(true);
+      const response = await authApi.signup({
+        email: formData.email,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        name: formData.name,
+        organizationName: formData.organizationName,
+      });
+
       console.log('Registration successful:', response.data);
+
+      // Redirect to onboarding after successful signup
+      navigate('/onboarding');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-8 h-8 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
-          <p className="text-gray-600 mb-6">
-            We've sent a verification email to <strong>{formData.adminEmail}</strong>.
-            Please check your inbox and click the verification link to complete your setup.
-          </p>
-          <p className="text-sm text-gray-500">
-            The verification link will expire in 48 hours.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
@@ -96,72 +81,69 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="adminName" className="block text-sm font-medium text-gray-700 mb-1">
-                Admin Name *
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                Your Name *
               </label>
               <input
                 type="text"
-                id="adminName"
+                id="name"
                 required
-                minLength={2}
+                minLength={3}
+                autoComplete="name"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                value={formData.adminName}
-                onChange={(e) => setFormData({ ...formData, adminName: e.target.value })}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
 
             <div>
-              <label htmlFor="adminEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                Admin Email *
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Your Email *
               </label>
               <input
                 type="email"
-                id="adminEmail"
+                id="email"
                 required
+                autoComplete="email"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                value={formData.adminEmail}
-                onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
 
             <div>
-              <label htmlFor="industry" className="block text-sm font-medium text-gray-700 mb-1">
-                Industry
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Password *
               </label>
-              <select
-                id="industry"
+              <input
+                type="password"
+                id="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                value={formData.industry}
-                onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-              >
-                <option value="">Select industry...</option>
-                <option value="Healthcare">Healthcare</option>
-                <option value="Finance">Finance</option>
-                <option value="Manufacturing">Manufacturing</option>
-                <option value="Retail">Retail</option>
-                <option value="Technology">Technology</option>
-                <option value="Education">Education</option>
-                <option value="Other">Other</option>
-              </select>
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                At least 8 characters, including uppercase, lowercase, and number/special character
+              </p>
             </div>
 
             <div>
-              <label htmlFor="companySize" className="block text-sm font-medium text-gray-700 mb-1">
-                Company Size
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password *
               </label>
-              <select
-                id="companySize"
+              <input
+                type="password"
+                id="confirmPassword"
+                required
+                minLength={8}
+                autoComplete="new-password"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                value={formData.companySize}
-                onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
-              >
-                <option value="">Select size...</option>
-                <option value="1-10">1-10 employees</option>
-                <option value="11-50">11-50 employees</option>
-                <option value="51-200">51-200 employees</option>
-                <option value="201-500">201-500 employees</option>
-                <option value="500+">500+ employees</option>
-              </select>
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              />
             </div>
 
             <button
@@ -173,9 +155,17 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-600">
-            By registering, you agree to our Terms of Service and Privacy Policy
-          </p>
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600 mb-3">
+              By registering, you agree to our Terms of Service and Privacy Policy
+            </p>
+            <p className="text-sm text-gray-600">
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+                Sign in
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

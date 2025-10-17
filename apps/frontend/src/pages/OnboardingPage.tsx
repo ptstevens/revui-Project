@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Header from '../components/Header';
 
 interface ChecklistItem {
   id: string;
@@ -44,18 +45,23 @@ export default function OnboardingPage() {
 
   if (dismissed) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Revui!</h2>
-          <p className="text-gray-600">Your dashboard would be displayed here.</p>
+      <>
+        <Header userName="Admin User" />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Revui!</h2>
+            <p className="text-gray-600">Your dashboard would be displayed here.</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
+    <>
+      <Header userName="Admin User" />
+      <div className="min-h-screen bg-gray-50 py-12 px-4">
+        <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Revui!</h1>
           <p className="text-gray-600">Let's get you started with these quick steps</p>
@@ -157,7 +163,8 @@ export default function OnboardingPage() {
             Skip for now and go to dashboard →
           </button>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
